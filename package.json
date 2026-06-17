@@ -45,9 +45,14 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "seed:download": "node scripts/etl/download-sources.mjs",
-    "seed:build": "node scripts/etl/build-n5-seed.mjs",
-    "seed:verify": "node scripts/verify-n5-seed.mjs",
-    "seed": "npm run seed:download && npm run seed:build && npm run seed:verify"
+    "seed:build": "node scripts/etl/build-vocab-seed.mjs",
+    "seed:verify": "node scripts/verify-vocab-seed.mjs",
+    "seed": "npm run seed:download && npm run seed:build && npm run seed:verify",
+    "kanji:download": "node scripts/etl/download-kanji-sources.mjs",
+    "kanji:build": "node scripts/etl/build-kanji-data.mjs",
+    "kanji:verify": "node scripts/verify-kanji-data.mjs",
+    "kanji": "npm run kanji:download && npm run kanji:build && npm run kanji:verify",
+    "data": "npm run seed && npm run kanji"
   },
   "private": true
 }

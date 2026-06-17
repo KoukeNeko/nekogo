@@ -1,5 +1,5 @@
 /**
- * Harness: 驗證 src/data/n5Seed.json 的完整性與對位正確性。
+ * Harness: 驗證 src/data/vocabSeed.json（JLPT N1–N5）的完整性與對位正確性。
  *
  * 自動輸出每項檢查的 PASS/FAIL，任一硬性檢查失敗即 exit 1。
  * 核心不變性：
@@ -13,9 +13,10 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
-const SEED_PATH = join(SCRIPT_DIR, '..', 'src', 'data', 'n5Seed.json');
+const SEED_PATH = join(SCRIPT_DIR, '..', 'src', 'data', 'vocabSeed.json');
 
-const MIN_EXPECTED_CARDS = 600;
+const MIN_EXPECTED_CARDS = 5000;
+const EXPECTED_LEVELS = [1, 2, 3, 4, 5];
 const KANJI_START = '一';
 const KANJI_END = '鿿';
 
@@ -45,20 +46,27 @@ const collectViolations = (cards, predicate, limit = 5) => {
 };
 
 const main = () => {
-  console.log('--- 驗證 N5 預載牌組 ---\n');
+  console.log('--- 驗證 JLPT N1–N5 預載詞彙牌組 ---\n');
 
   const seed = JSON.parse(readFileSync(SEED_PATH, 'utf-8'));
   const cards = seed.cards;
 
   check('seed 結構含 cards 陣列', Array.isArray(cards), `cards=${Array.isArray(cards) ? cards.length : 'N/A'}`);
   if (!Array.isArray(cards)) {
-    return; // 結構壞掉，後續檢查無意義
+    return;
   }
 
   check(`卡片數 ≥ ${MIN_EXPECTED_CARDS}`, cards.length >= MIN_EXPECTED_CARDS, `實際 ${cards.length}`);
 
+  const presentLevels = new Set(cards.map((card) => card.jlpt));
+  const missingLevels = EXPECTED_LEVELS.filter((level) => !presentLevels.has(level));
+  check('N1–N5 五級皆有卡片', missingLevels.length === 0, missingLevels.length ? `缺 N${missingLevels.join(', N')}` : '');
+
   const uniqueIds = new Set(cards.map((card) => card.id));
   check('卡片 id 皆唯一', uniqueIds.size === cards.length, `unique ${uniqueIds.size}/${cards.length}`);
+
+  const uniqueWords = new Set(cards.map((card) => `${card.expression}\t${card.reading}`));
+  check('表記+讀音皆唯一（無跨級重複）', uniqueWords.size === cards.length, `unique ${uniqueWords.size}/${cards.length}`);
 
   const fieldsOk = collectViolations(
     cards,
@@ -92,11 +100,11 @@ const main = () => {
   console.log(`ℹ️  INFO  JmdictFurigana 精準對位 ${alignedCount}/${cards.length}（${((alignedCount / cards.length) * 100).toFixed(1)}%）`);
 
   // 真正需關注的品質訊號：多漢字詞卻只有整詞後備（無法逐字對位）。
-  // 純假名 / 單漢字 / 熟字訓的整詞段落無損，故只看「未對位且含 ≥2 漢字」者。
   const countKanji = (text) => [...text].filter((char) => char >= KANJI_START && char <= KANJI_END).length;
   const suboptimal = cards.filter((card) => !card.aligned && countKanji(card.expression) >= 2);
+  const suboptimalRatio = suboptimal.length / cards.length;
   const suboptimalSample = suboptimal.slice(0, 12).map((card) => `${card.expression}/${card.reading}`).join(', ');
-  console.log(`${suboptimal.length === 0 ? 'ℹ️  INFO' : '⚠️  WARN'}  多漢字未逐字對位: ${suboptimal.length} 筆${suboptimal.length ? ` — ${suboptimalSample}` : ''}`);
+  console.log(`${suboptimal.length === 0 ? 'ℹ️  INFO' : '⚠️  WARN'}  多漢字未逐字對位: ${suboptimal.length} 筆（${(suboptimalRatio * 100).toFixed(1)}%）${suboptimal.length ? ` — 例: ${suboptimalSample}` : ''}`);
 
   console.log('');
   if (failureCount === 0) {

@@ -10,13 +10,30 @@ import { AppBar } from "../components/ui/AppBar";
 import { Rating } from "ts-fsrs";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { PenTool } from "lucide-react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useReviewSession } from "../hooks/useReviewSession";
 import { ActivityIndicator } from "react-native";
+import kanjiData from "../data/kanjiData.json";
+import { KanjiStrokeBoard } from "../components/ui/KanjiStrokeBoard";
+
+interface KanjiEntry {
+    strokes: string[];
+    strokeCount: number | null;
+    grade: number | null;
+    jlpt: number | null;
+    frequency: number | null;
+    on: string[];
+    kun: string[];
+    meanings: string[];
+}
+
+const KANJI_BY_CHAR = kanjiData.kanji as Record<string, KanjiEntry>;
 
 export default function Review() {
   const router = useRouter();
+  const { deckId } = useLocalSearchParams<{ deckId?: string }>();
   const [isFlipped, setIsFlipped] = useState(false);
+  const [kanjiTriggers, setKanjiTriggers] = useState<Record<string, number>>({});
 
   const { 
     currentItem, 
@@ -27,7 +44,7 @@ export default function Review() {
     upcomingIntervals, 
     handleRate,
     resetSession 
-  } = useReviewSession();
+  } = useReviewSession(deckId);
 
   const handleFlip = () => {
     setIsFlipped(true);
@@ -53,12 +70,11 @@ export default function Review() {
           複習完了！
         </Text>
         <TouchableOpacity 
-          style={styles.flipButton} 
           onPress={() => {
             resetSession();
             setIsFlipped(false);
           }}
-          style={{ paddingHorizontal: Spacing.four, paddingVertical: Spacing.three, backgroundColor: Colors.dark.primaryOrange, borderRadius: BORDER_RADIUS.md }}
+          style={[{ paddingHorizontal: Spacing.four, paddingVertical: Spacing.three, backgroundColor: Colors.dark.primaryOrange, borderRadius: BORDER_RADIUS.md }]}
         >
           <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>もう一度 (Restart Mock)</Text>
         </TouchableOpacity>
@@ -66,10 +82,18 @@ export default function Review() {
     );
   }
 
-  const displayChunks = currentItem.kanji.map(chunk => ({
+  const displayChunks = currentItem.kanji.map((chunk: any) => ({
     ruby: chunk.ruby,
     rt: chunk.rt
   }));
+
+  const expression = displayChunks.map((c: any) => c.ruby).join('');
+  const uniqueKanjis = Array.from(new Set(expression.match(/[\u4e00-\u9faf]/g) || []));
+  const validKanjis = uniqueKanjis.filter(k => KANJI_BY_CHAR[k as string]);
+
+  const handleKanjiReplay = (k: string) => {
+    setKanjiTriggers(prev => ({ ...prev, [k]: (prev[k] || 0) + 1 }));
+  };
 
   const renderFront = () => (
     <View style={styles.frontContent}>
@@ -110,7 +134,13 @@ export default function Review() {
         </View>
 
         <View style={styles.pitchRightArea}>
-          <TouchableOpacity style={styles.pitchPill} onPress={() => router.push('/stroke-order')}>
+          <TouchableOpacity style={styles.pitchPill} onPress={() => {
+            if (validKanjis.length > 0) {
+              router.push(`/stroke-order?kanji=${validKanjis[0]}`);
+            } else {
+              router.push('/stroke-order');
+            }
+          }}>
             <PenTool size={14} color={Colors.dark.pitchLine} style={{ marginRight: 4 }} />
             <Text style={styles.pitchPillText}>筆順</Text>
           </TouchableOpacity>
@@ -148,6 +178,41 @@ export default function Review() {
         
         <Text style={styles.sentenceFooter}>例文 • Tatoeba CC BY</Text>
       </View>
+
+      {/* Embedded Kanji Stroke Orders */}
+      {validKanjis.length > 0 && (
+        <View style={styles.kanjiCompositionArea}>
+          <Text style={styles.kanjiSectionTitle}>構成漢字</Text>
+          {validKanjis.map((k) => {
+            const entry = KANJI_BY_CHAR[k as string];
+            const paths = entry.strokes || [];
+            const trigger = kanjiTriggers[k as string] || 0;
+            const readingStr = [entry.kun.join('、'), entry.on.join('、')].filter(Boolean).join('  •  ');
+            const meaningStr = entry.meanings.slice(0, 3).join(', ');
+
+            return (
+              <View key={k} style={styles.kanjiRow}>
+                <TouchableOpacity onPress={() => handleKanjiReplay(k as string)} style={styles.kanjiBoardWrapper}>
+                  <KanjiStrokeBoard paths={paths} trigger={trigger} size={84} />
+                </TouchableOpacity>
+                <View style={styles.kanjiInfoRight}>
+                  <View style={styles.kanjiInfoTop}>
+                    <Text style={styles.kanjiCharText}>{k}</Text>
+                    {entry.jlpt && (
+                      <View style={styles.kanjiBadge}>
+                        <Text style={styles.kanjiBadgeText}>N{entry.jlpt}</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={styles.kanjiReadingText} numberOfLines={1}>{readingStr}</Text>
+                  <Text style={styles.kanjiMeaningText} numberOfLines={2}>{meaningStr}</Text>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      )}
+
     </ScrollView>
   );
 
@@ -419,5 +484,63 @@ const styles = StyleSheet.create({
     fontSize: 11,
     textTransform: 'uppercase',
     letterSpacing: 1,
+  },
+  kanjiCompositionArea: {
+    marginTop: Spacing.six,
+  },
+  kanjiSectionTitle: {
+    color: Colors.dark.textSecondary,
+    fontSize: 12,
+    letterSpacing: 2,
+    marginBottom: Spacing.three,
+  },
+  kanjiRow: {
+    flexDirection: 'row',
+    backgroundColor: '#16171B',
+    borderRadius: BORDER_RADIUS.lg,
+    padding: Spacing.three,
+    marginBottom: Spacing.three,
+    borderWidth: 1,
+    borderColor: '#2E3135',
+    alignItems: 'center',
+  },
+  kanjiBoardWrapper: {
+    marginRight: Spacing.four,
+  },
+  kanjiInfoRight: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  kanjiInfoTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+    gap: Spacing.two,
+  },
+  kanjiCharText: {
+    color: Colors.dark.text,
+    fontSize: 24,
+    fontFamily: Fonts?.serif,
+    fontWeight: 'bold',
+  },
+  kanjiBadge: {
+    backgroundColor: '#1C2939',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  kanjiBadgeText: {
+    color: '#68A5FF',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  kanjiReadingText: {
+    color: Colors.dark.textSecondary,
+    fontSize: 12,
+    marginBottom: 2,
+  },
+  kanjiMeaningText: {
+    color: Colors.dark.text,
+    fontSize: 14,
   }
 });

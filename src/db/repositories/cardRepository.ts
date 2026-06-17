@@ -1,24 +1,63 @@
 import { db } from '../schema';
-import { Card } from '../../../services/fsrs';
-import { VocabItem } from '../../../hooks/useReviewSession';
+import { Card } from '../../services/fsrs';
+import { VocabItem } from '../../hooks/useReviewSession';
 
-export const getDueCards = (limit: number = 20): VocabItem[] => {
+export const getDailyMetrics = (deckId?: string) => {
   const now = new Date().getTime();
   
-  // Fetch cards where due date is in the past, or it's a new card (due = 0 or near now)
-  const result = db.executeSync(
+  const baseCondition = deckId ? `AND n.deck_id = '${deckId}'` : '';
+  const joinNotes = deckId ? `JOIN notes n ON cards.note_id = n.id` : '';
+  
+  // New cards: state = 0
+  const newResult = db.executeSync(`SELECT COUNT(*) as count FROM cards ${joinNotes} WHERE state = 0 ${baseCondition}`);
+  const newCards = (newResult.rows[0] as any)?.count || 0;
+
+  // Learning cards: state = 1 (Learning) OR state = 3 (Relearning)
+  const learningResult = db.executeSync(`SELECT COUNT(*) as count FROM cards ${joinNotes} WHERE (state = 1 OR state = 3) AND due <= ? ${baseCondition}`, [now]);
+  const learningCards = (learningResult.rows[0] as any)?.count || 0;
+
+  // Review cards: state = 2 (Review)
+  const reviewResult = db.executeSync(`SELECT COUNT(*) as count FROM cards ${joinNotes} WHERE state = 2 AND due <= ? ${baseCondition}`, [now]);
+  const reviewCards = (reviewResult.rows[0] as any)?.count || 0;
+
+  return { newCards, learningCards, reviewCards };
+};
+
+export const getDueCards = (newLimit: number = 20, reviewLimit: number = 50, deckId?: string): VocabItem[] => {
+  const now = new Date().getTime();
+  
+  const baseCondition = deckId ? `AND n.deck_id = '${deckId}'` : '';
+  
+  // 1. Fetch Review / Learning cards (state > 0)
+  const reviewResult = db.executeSync(
     `SELECT c.*, n.kanji, n.english 
      FROM cards c
      JOIN notes n ON c.note_id = n.id
-     WHERE c.due <= ?
+     WHERE c.state > 0 AND c.due <= ? ${baseCondition}
      ORDER BY c.due ASC
      LIMIT ?`,
-    [now, limit]
+    [now, reviewLimit]
   );
+  
+  const reviewRows = reviewResult.rows || [];
+  
+  // 2. Fetch New cards (state = 0)
+  const newResult = db.executeSync(
+    `SELECT c.*, n.kanji, n.english 
+     FROM cards c
+     JOIN notes n ON c.note_id = n.id
+     WHERE c.state = 0 ${baseCondition}
+     ORDER BY c.due ASC
+     LIMIT ?`,
+    [newLimit]
+  );
+  
+  const newRows = newResult.rows || [];
+  
+  // 3. Combine them: Reviews first, then New cards
+  const combinedRows = [...reviewRows, ...newRows];
 
-  const rows = result.rows?._array || [];
-
-  return rows.map((row: any) => ({
+  return combinedRows.map((row: any) => ({
     id: row.note_id,
     kanji: JSON.parse(row.kanji),
     english: row.english,

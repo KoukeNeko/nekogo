@@ -1,16 +1,48 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, RotateCw } from 'lucide-react-native';
 import { Colors, Spacing, Fonts, BORDER_RADIUS } from '../constants/theme';
 import { AppBar } from '../components/ui/AppBar';
 import { KanjiStrokeBoard } from '../components/ui/KanjiStrokeBoard';
-import { MOCK_KANJI_PATHS } from '../data/mockKanjiVG';
+import kanjiData from '../data/kanjiData.json';
+
+const DEFAULT_KANJI = '木';
+
+interface KanjiEntry {
+    strokes: string[];
+    strokeCount: number | null;
+    grade: number | null;
+    jlpt: number | null;
+    frequency: number | null;
+    on: string[];
+    kun: string[];
+    meanings: string[];
+}
+
+const KANJI_BY_CHAR = kanjiData.kanji as Record<string, KanjiEntry>;
+
+// 讀音行：訓讀在前、音讀在後，以「•」分隔（如「き、こ-  •  ボク、モク」）。
+const formatReading = (entry: KanjiEntry): string =>
+    [entry.kun.join('、'), entry.on.join('、')].filter(Boolean).join('  •  ');
+
+// 字義行：英文字義 + 筆畫數（如「tree, wood  •  4画」）。
+const formatMeaning = (entry: KanjiEntry, strokeCount: number): string =>
+    [entry.meanings.slice(0, 2).join(', '), `${entry.strokeCount ?? strokeCount}画`]
+        .filter(Boolean)
+        .join('  •  ');
 
 export default function StrokeOrder() {
     const router = useRouter();
-    
+    const { kanji: kanjiParam } = useLocalSearchParams<{ kanji?: string }>();
+
+    // 路由參數可為整個詞；取第一個漢字，預設顯示「木」。
+    const kanjiChar =
+        typeof kanjiParam === 'string' && kanjiParam.length > 0 ? [...kanjiParam][0] : DEFAULT_KANJI;
+    const entry = KANJI_BY_CHAR[kanjiChar] ?? KANJI_BY_CHAR[DEFAULT_KANJI];
+    const paths = entry?.strokes ?? [];
+
     const [trigger, setTrigger] = useState(0);
     const [activeStroke, setActiveStroke] = useState(0);
 
@@ -48,15 +80,16 @@ export default function StrokeOrder() {
                 
                 {/* Info Text */}
                 <View style={styles.infoArea}>
-                    <Text style={styles.readingText}>き  •  モク</Text>
-                    <Text style={styles.meaningText}>tree • 4画</Text>
+                    <Text style={styles.kanjiChar}>{kanjiChar}</Text>
+                    <Text style={styles.readingText}>{formatReading(entry)}</Text>
+                    <Text style={styles.meaningText}>{formatMeaning(entry, paths.length)}</Text>
                 </View>
 
                 {/* Animated Board */}
-                <KanjiStrokeBoard 
-                    paths={MOCK_KANJI_PATHS} 
-                    trigger={trigger} 
-                    activeStroke={activeStroke} 
+                <KanjiStrokeBoard
+                    paths={paths}
+                    trigger={trigger}
+                    activeStroke={activeStroke}
                 />
 
                 {/* Controls */}
@@ -64,7 +97,7 @@ export default function StrokeOrder() {
                     
                     {/* Stroke Numbers */}
                     <View style={styles.strokeNumbersRow}>
-                        {MOCK_KANJI_PATHS.map((_, index) => {
+                        {paths.map((_, index) => {
                             const strokeNum = index + 1;
                             const isActive = activeStroke === strokeNum;
                             return (
@@ -133,6 +166,12 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: Spacing.six,
         gap: Spacing.two,
+    },
+    kanjiChar: {
+        color: Colors.dark.text,
+        fontSize: 40,
+        fontWeight: 'bold',
+        fontFamily: Fonts?.serif,
     },
     readingText: {
         color: Colors.dark.textSecondary,

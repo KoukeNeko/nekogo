@@ -1,7 +1,7 @@
 /**
- * 下載 N5 種子 ETL 的原始資料源到 .cache/（gitignore，可隨時重抓）。
+ * 下載詞彙種子 ETL 的原始資料源到 .cache/（gitignore，可隨時重抓）。
  *
- *   - n5.csv             open-anki-jlpt-decks main 分支（MIT）
+ *   - n1.csv … n5.csv     open-anki-jlpt-decks main 分支（MIT）
  *   - JmdictFurigana.json Doublevil 最新 release（CC BY-SA 4.0）
  *
  * 兩者皆可商用（須署名，見 RESOURCES.md §8）。
@@ -14,7 +14,9 @@ import { fileURLToPath } from 'node:url';
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const CACHE_DIR = join(SCRIPT_DIR, '.cache');
 
-const N5_CSV_URL = 'https://raw.githubusercontent.com/jamsinclair/open-anki-jlpt-decks/main/src/n5.csv';
+const JLPT_LEVELS = [1, 2, 3, 4, 5];
+const jlptCsvUrl = (level) =>
+  `https://raw.githubusercontent.com/jamsinclair/open-anki-jlpt-decks/main/src/n${level}.csv`;
 const FURIGANA_LATEST_RELEASE_API =
   'https://api.github.com/repos/Doublevil/JmdictFurigana/releases/latest';
 const FURIGANA_ASSET_NAME = 'JmdictFurigana.json';
@@ -45,11 +47,14 @@ const resolveFuriganaAssetUrl = async () => {
 };
 
 const main = async () => {
-  console.log('--- 下載 N5 種子原始資料 ---\n');
+  console.log('--- 下載詞彙種子原始資料 ---\n');
   mkdirSync(CACHE_DIR, { recursive: true });
 
-  console.log(`下載 n5.csv …`);
-  writeFileSync(join(CACHE_DIR, 'n5.csv'), await fetchText(N5_CSV_URL), 'utf-8');
+  for (const level of JLPT_LEVELS) {
+    const fileName = `n${level}.csv`;
+    console.log(`下載 ${fileName} …`);
+    writeFileSync(join(CACHE_DIR, fileName), await fetchText(jlptCsvUrl(level)), 'utf-8');
+  }
 
   const furigana = await resolveFuriganaAssetUrl();
   console.log(`下載 JmdictFurigana.json (${furigana.tag}) …`);

@@ -1,9 +1,12 @@
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { Colors, Spacing, BORDER_RADIUS, Fonts } from "../../constants/theme";
 import Svg, { Circle } from 'react-native-svg';
+import { getDailyMetrics } from '../../db/repositories/cardRepository';
+import { getAllDecksWithMetrics, Deck } from '../../db/repositories/deckRepository';
+import { useState, useCallback } from 'react';
 
 const CircularProgress = ({ progress, size, strokeWidth, color, trackColor, children }: any) => {
   const radius = (size - strokeWidth) / 2;
@@ -44,6 +47,36 @@ const CircularProgress = ({ progress, size, strokeWidth, color, trackColor, chil
 export default function Home() {
   const router = useRouter();
 
+  const [metrics, setMetrics] = useState({ newCards: 0, learningCards: 0, reviewCards: 0 });
+  const [decks, setDecks] = useState<Deck[]>([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      try {
+        const data = getDailyMetrics();
+        setMetrics({
+          newCards: Math.min(data.newCards, 20),
+          learningCards: data.learningCards,
+          reviewCards: data.reviewCards
+        });
+
+        const decksData = getAllDecksWithMetrics();
+        setDecks(decksData);
+      } catch (e) {
+        console.error('Failed to load metrics or decks', e);
+      }
+    }, [])
+  );
+
+  const totalDue = metrics.newCards + metrics.learningCards + metrics.reviewCards;
+  // Let's assume a daily target of say 40 cards total (20 new + 20 reviews ideally), 
+  // or just base progress on whether totalDue is 0.
+  // We'll hardcode a fake daily quota denominator for the visualization for now, 
+  // or use totalDue as remaining.
+  // Actually, if we just want a progress bar of today's session:
+  // If totalDue is 0, progress is 1. Else progress is something like 0.2 just for visual
+  const progress = totalDue === 0 ? 1 : 0.3; // Placeholder progress logic
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -65,14 +98,14 @@ export default function Home() {
             {/* Circular Progress */}
             <View style={styles.chartContainer}>
               <CircularProgress 
-                progress={0.3} 
+                progress={progress} 
                 size={110} 
                 strokeWidth={10} 
-                color={Colors.dark.primaryOrange} 
+                color={totalDue === 0 ? '#66D283' : Colors.dark.primaryOrange} 
                 trackColor="#2E3135"
               >
                 <View style={{ alignItems: 'center', marginTop: 4 }}>
-                  <Text style={styles.chartBigText}>87</Text>
+                  <Text style={styles.chartBigText}>{totalDue}</Text>
                   <Text style={styles.chartSmallText}>枚予定</Text>
                 </View>
               </CircularProgress>
@@ -83,27 +116,34 @@ export default function Home() {
               <View style={styles.statRow}>
                 <View style={[styles.statDot, { backgroundColor: '#FF5A36' }]} />
                 <Text style={styles.statLabel}>新規</Text>
-                <Text style={styles.statValue}>24</Text>
+                <Text style={styles.statValue}>{metrics.newCards}</Text>
               </View>
               <View style={styles.statRow}>
                 <View style={[styles.statDot, { backgroundColor: '#F0A944' }]} />
                 <Text style={styles.statLabel}>学習中</Text>
-                <Text style={styles.statValue}>11</Text>
+                <Text style={styles.statValue}>{metrics.learningCards}</Text>
               </View>
               <View style={styles.statRow}>
                 <View style={[styles.statDot, { backgroundColor: '#66D283' }]} />
                 <Text style={styles.statLabel}>復習</Text>
-                <Text style={styles.statValue}>52</Text>
+                <Text style={styles.statValue}>{metrics.reviewCards}</Text>
               </View>
             </View>
           </View>
 
           {/* Action Button */}
           <TouchableOpacity 
-            style={styles.mainButton}
-            onPress={() => router.push("/review")}
+            style={[styles.mainButton, totalDue === 0 && { backgroundColor: '#2E3135' }]}
+            onPress={() => {
+              if (totalDue > 0) {
+                router.push("/review");
+              }
+            }}
+            activeOpacity={totalDue === 0 ? 1 : 0.7}
           >
-            <Text style={styles.mainButtonText}>復習を始める　→</Text>
+            <Text style={[styles.mainButtonText, totalDue === 0 && { color: '#8E8F94' }]}>
+              {totalDue === 0 ? '今日の目標達成！ 🎉' : '復習を始める　→'}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -117,73 +157,45 @@ export default function Home() {
 
         {/* Decks List */}
         <View style={styles.deckList}>
-          
-          {/* Deck 1 */}
-          <TouchableOpacity style={styles.deckCard} onPress={() => router.push("/deck")}>
-            <View style={styles.deckContentRow}>
-              <View style={styles.deckLeft}>
-                <View style={styles.deckTitleRow}>
-                  <Text style={styles.deckTitle}>N3 語彙</Text>
-                  <View style={[styles.tagBadge, { backgroundColor: '#1C2939' }]}>
-                    <Text style={[styles.tagText, { color: '#68A5FF' }]}>N3</Text>
+          {decks.map(deck => {
+            const dueCount = deck.metrics.dueCards; // This includes ALL new cards, maybe we should cap it or just display it. Let's cap visual new cards to 20 for the deck due too? Wait, dueCards in deck metric is total due. 
+            // We can just use the same logic: newCards capped to 20 per deck for display.
+            const displayDue = Math.min(deck.metrics.newCards, 20) + deck.metrics.learningCards + deck.metrics.reviewCards;
+            const progressRatio = deck.metrics.totalCards > 0 ? (deck.metrics.totalCards - displayDue) / deck.metrics.totalCards : 1;
+            const progressPercent = Math.max(0, Math.min(100, progressRatio * 100));
+            const isCompleted = displayDue === 0;
+
+            return (
+              <TouchableOpacity 
+                key={deck.id} 
+                style={styles.deckCard} 
+                onPress={() => router.push(`/deck/${deck.id}`)}
+              >
+                <View style={styles.deckContentRow}>
+                  <View style={styles.deckLeft}>
+                    <View style={styles.deckTitleRow}>
+                      <Text style={styles.deckTitle}>{deck.name}</Text>
+                      {deck.tags && deck.tags.length > 0 && (
+                        <View style={[styles.tagBadge, { backgroundColor: '#1C2939' }]}>
+                          <Text style={[styles.tagText, { color: '#68A5FF' }]}>{deck.tags[0]}</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={styles.deckSubtitle}>{deck.description}</Text>
+                  </View>
+                  <View style={styles.deckRight}>
+                    <Text style={[styles.dueCount, { color: isCompleted ? '#66D283' : Colors.dark.primaryOrange }]}>
+                      {displayDue}
+                    </Text>
+                    <Text style={styles.dueLabel}>予定</Text>
                   </View>
                 </View>
-                <Text style={styles.deckSubtitle}>Core vocabulary</Text>
-              </View>
-              <View style={styles.deckRight}>
-                <Text style={[styles.dueCount, { color: Colors.dark.primaryOrange }]}>42</Text>
-                <Text style={styles.dueLabel}>予定</Text>
-              </View>
-            </View>
-            <View style={styles.progressBarTrack}>
-              <View style={[styles.progressBarFill, { width: '60%', backgroundColor: Colors.dark.primaryOrange }]} />
-            </View>
-          </TouchableOpacity>
-
-          {/* Deck 2 */}
-          <TouchableOpacity style={styles.deckCard}>
-            <View style={styles.deckContentRow}>
-              <View style={styles.deckLeft}>
-                <View style={styles.deckTitleRow}>
-                  <Text style={styles.deckTitle}>常用漢字</Text>
-                  <View style={[styles.tagBadge, { backgroundColor: '#3A271D' }]}>
-                    <Text style={[styles.tagText, { color: '#E0925B' }]}>漢字</Text>
-                  </View>
+                <View style={styles.progressBarTrack}>
+                  <View style={[styles.progressBarFill, { width: `${progressPercent}%`, backgroundColor: isCompleted ? '#66D283' : Colors.dark.primaryOrange }]} />
                 </View>
-                <Text style={styles.deckSubtitle}>Jōyō kanji • stroke order</Text>
-              </View>
-              <View style={styles.deckRight}>
-                <Text style={[styles.dueCount, { color: Colors.dark.primaryOrange }]}>27</Text>
-                <Text style={styles.dueLabel}>予定</Text>
-              </View>
-            </View>
-            <View style={styles.progressBarTrack}>
-              <View style={[styles.progressBarFill, { width: '35%', backgroundColor: Colors.dark.primaryOrange }]} />
-            </View>
-          </TouchableOpacity>
-
-          {/* Deck 3 */}
-          <TouchableOpacity style={styles.deckCard}>
-            <View style={styles.deckContentRow}>
-              <View style={styles.deckLeft}>
-                <View style={styles.deckTitleRow}>
-                  <Text style={styles.deckTitle}>会話フレーズ</Text>
-                  <View style={[styles.tagBadge, { backgroundColor: '#1C2939' }]}>
-                    <Text style={[styles.tagText, { color: '#68A5FF' }]}>N4</Text>
-                  </View>
-                </View>
-                <Text style={styles.deckSubtitle}>Conversation</Text>
-              </View>
-              <View style={styles.deckRight}>
-                <Text style={[styles.dueCount, { color: '#66D283' }]}>8</Text>
-                <Text style={styles.dueLabel}>予定</Text>
-              </View>
-            </View>
-            <View style={styles.progressBarTrack}>
-              <View style={[styles.progressBarFill, { width: '80%', backgroundColor: '#66D283' }]} />
-            </View>
-          </TouchableOpacity>
-
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
       </ScrollView>

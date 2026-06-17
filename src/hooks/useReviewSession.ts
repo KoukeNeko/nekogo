@@ -9,7 +9,7 @@ export interface VocabItem {
   fsrsCard: Card;
 }
 
-export const useReviewSession = () => {
+export const useReviewSession = (deckId?: string) => {
   const [deck, setDeck] = useState<VocabItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -18,7 +18,7 @@ export const useReviewSession = () => {
   useEffect(() => {
     const loadCards = () => {
       try {
-        const dueCards = getDueCards(20); // fetch up to 20 due cards
+        const dueCards = getDueCards(20, 50, deckId); // fetch up to 50 review cards, and up to 20 new cards
         setDeck(dueCards);
       } catch (error) {
         console.error('Failed to load due cards from SQLite', error);
@@ -80,7 +80,7 @@ export const useReviewSession = () => {
     setCurrentIndex(0);
     // Refetch the next batch of due cards
     try {
-      const dueCards = getDueCards(20);
+      const dueCards = getDueCards(20, 50, deckId);
       setDeck(dueCards);
     } catch (error) {
       console.error(error);

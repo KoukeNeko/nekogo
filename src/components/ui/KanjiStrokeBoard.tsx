@@ -20,11 +20,15 @@ interface KanjiStrokeBoardProps {
     trigger: number; 
     // To highlight a specific stroke (1-indexed). If 0, no specific highlight.
     activeStroke?: number; 
+    // Optional explicit size. Defaults to full width minus padding if not provided.
+    size?: number;
 }
 
 const PATH_LENGTH = 1000;
+const { width } = Dimensions.get('window');
+const DEFAULT_BOARD_SIZE = width - 64;
 
-export const KanjiStrokeBoard: React.FC<KanjiStrokeBoardProps> = ({ paths, trigger, activeStroke = 0 }) => {
+export const KanjiStrokeBoard: React.FC<KanjiStrokeBoardProps> = ({ paths, trigger, activeStroke = 0, size }) => {
     
     const { strokeSpeed } = useSettings();
 
@@ -64,8 +68,11 @@ export const KanjiStrokeBoard: React.FC<KanjiStrokeBoardProps> = ({ paths, trigg
         }
     }, [trigger, activeStroke]);
 
+    const actualSize = size || DEFAULT_BOARD_SIZE;
+    const padding = size ? size * 0.22 : 24; // Scale padding with size
+
     return (
-        <View style={styles.board}>
+        <View style={[styles.board, { width: actualSize, height: actualSize, padding }]}>
             <Svg viewBox="0 0 109 109" style={styles.svg}>
                 {/* Crosshairs */}
                 <Line x1="54.5" y1="0" x2="54.5" y2="109" stroke="#2E3135" strokeWidth="2" strokeDasharray="4 4" />
@@ -114,19 +121,13 @@ export const KanjiStrokeBoard: React.FC<KanjiStrokeBoardProps> = ({ paths, trigg
     );
 };
 
-const { width } = Dimensions.get('window');
-const BOARD_SIZE = width - 64; // Spacing.four (16) * 4
-
 const styles = StyleSheet.create({
     board: {
-        width: BOARD_SIZE,
-        height: BOARD_SIZE,
         backgroundColor: '#121316',
         borderRadius: BORDER_RADIUS.xl,
         borderWidth: 1,
         borderColor: '#2E3135',
         alignSelf: 'center',
-        padding: 24,
     },
     svg: {
         flex: 1,

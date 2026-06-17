@@ -1,13 +1,13 @@
 import { db } from './schema';
 import { createNewCard } from '../services/fsrs';
-import n5Seed from '../data/n5Seed.json';
+import vocabSeed from '../data/vocabSeed.json';
 
 interface FuriganaSegment {
   ruby: string;
   rt?: string;
 }
 
-// 由 scripts/etl/build-n5-seed.mjs 從 open-anki-jlpt-decks + JmdictFurigana 產生。
+// 由 scripts/etl/build-vocab-seed.mjs 從 open-anki-jlpt-decks + JmdictFurigana 產生。
 interface SeedCard {
   id: string;
   expression: string;
@@ -18,14 +18,14 @@ interface SeedCard {
   aligned: boolean;
 }
 
-const seedCards = (n5Seed as { cards: SeedCard[] }).cards;
+const seedCards = (vocabSeed as { cards: SeedCard[] }).cards;
 
 const insertSeedCard = (card: SeedCard) => {
   // notes.kanji 沿用既有契約：JSON 字串化的 furigana 段落 [{ruby, rt}]，
   // 與 cardRepository 的 JSON.parse 及 FuriganaText 元件相容。
   db.executeSync(
-    'INSERT INTO notes (id, kanji, english) VALUES (?, ?, ?)',
-    [card.id, JSON.stringify(card.furigana), card.english]
+    'INSERT INTO notes (id, kanji, english, deck_id) VALUES (?, ?, ?, ?)',
+    [card.id, JSON.stringify(card.furigana), card.english, `deck-n${card.jlpt}`]
   );
 
   const fsrsCard = createNewCard();
@@ -51,13 +51,19 @@ const insertSeedCard = (card: SeedCard) => {
 
 export const seedDatabaseIfEmpty = () => {
   const result = db.executeSync('SELECT COUNT(*) as count FROM notes');
-  const count = result.rows?._array[0].count;
+  const count = (result.rows[0] as any)?.count || 0;
 
-  if (count !== 0) {
+  if (count === seedCards.length) {
     return;
   }
 
-  console.log(`🌱 Seeding database with ${seedCards.length} N5 vocabulary cards...`);
+  if (count > 0 && count !== seedCards.length) {
+    console.log(`⚠️ Database has ${count} cards, but seed has ${seedCards.length}. Re-seeding...`);
+    db.executeSync('DELETE FROM notes');
+    db.executeSync('DELETE FROM cards');
+  }
+
+  console.log(`🌱 Seeding database with ${seedCards.length} vocabulary cards...`);
   db.executeSync('BEGIN TRANSACTION');
 
   try {

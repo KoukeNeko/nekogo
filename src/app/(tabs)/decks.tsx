@@ -4,19 +4,26 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Colors, Spacing, BORDER_RADIUS, Fonts } from "../../constants/theme";
 import { Search, MoreHorizontal, Plus, LayoutGrid, List, Library, Check } from "lucide-react-native";
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter, useFocusEffect } from "expo-router";
+import { getAllDecksWithMetrics, Deck } from "../../db/repositories/deckRepository";
+import { useCallback } from "react";
 
 export default function Decks() {
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'bookshelf'>('bookshelf');
+  const [decks, setDecks] = useState<Deck[]>([]);
+  const router = useRouter();
 
-  const deckData = [
-    { id: 1, title: "N3\n語彙", count: 324, tag: "N3", color: "#FF5A36", pending: 42, progress: 40 },
-    { id: 2, title: "常用\n漢字", count: 2136, tag: "漢字", color: "#F0A944", pending: 27, progress: 25 },
-    { id: 3, title: "N4\n語彙", count: 285, tag: "N4", color: "#5CB3FF", pending: 15, progress: 60 },
-    { id: 4, title: "会話\nフレーズ", count: 160, tag: "会話", color: "#4DA6FF", pending: 8, progress: 20 },
-    { id: 5, title: "N5\n基礎", count: 98, tag: "N5", color: "#66D283", pending: 0, progress: 100 },
-    { id: 6, title: "動詞\n活用", count: 120, tag: "文法", color: "#9D72FF", pending: 33, progress: 35 },
-    { id: 7, title: "自分\nの単語", count: 48, tag: "単語", color: "#20B2AA", pending: 5, progress: 10 },
-  ];
+  useFocusEffect(
+    useCallback(() => {
+      try {
+        const data = getAllDecksWithMetrics();
+        // Sort decks if needed. They are currently random. Let's keep them as is.
+        setDecks(data);
+      } catch (e) {
+        console.error('Failed to load decks', e);
+      }
+    }, [])
+  );
 
   const renderVerticalText = (text: string) => {
     // split by newline first (e.g. "N3\n語彙")
@@ -35,7 +42,20 @@ export default function Decks() {
     });
   };
 
-  const allItems = [...deckData, { id: 'new', isNew: true }];
+  const formatTitleForSpine = (name: string) => {
+    // JLPT N5 -> N5\n語彙 or similar. If it has a space, replace the first space with newline.
+    // e.g. "JLPT N5" -> "N5\n語彙"
+    let t = name.replace('JLPT ', '');
+    // If it's just "N5", make it "N5\n語彙"
+    if (t.match(/^N[1-5]$/)) {
+      t = t + '\n語彙';
+    } else if (t.includes(' ')) {
+      t = t.replace(' ', '\n');
+    }
+    return t;
+  };
+
+  const allItems = [...decks, { id: 'new', isNew: true } as any];
   const chunkedDecks = [];
   for (let i = 0; i < allItems.length; i += 4) {
     chunkedDecks.push(allItems.slice(i, i + 4));
@@ -88,36 +108,42 @@ export default function Decks() {
                       );
                     }
 
-                    // Calculate a slight height variation
-                    const heightOffset = (deck.id % 3) * 10;
+                    // Calculate a slight height variation based on id string length or char codes
+                    const heightOffset = (deck.id.length % 3) * 10;
+                    
+                    const pending = Math.min(deck.metrics.newCards, 20) + deck.metrics.learningCards + deck.metrics.reviewCards;
                     
                     return (
-                      <TouchableOpacity key={deck.id} style={[styles.spineWrapper, { marginTop: heightOffset }]}>
+                      <TouchableOpacity 
+                        key={deck.id} 
+                        style={[styles.spineWrapper, { marginTop: heightOffset }]}
+                        onPress={() => router.push(`/deck/${deck.id}`)}
+                      >
                         <LinearGradient
-                          colors={[`${deck.color}15`, '#16171B']}
+                          colors={[`${deck.color || '#66D283'}15`, '#16171B']}
                           start={{ x: 0, y: 0 }}
                           end={{ x: 1, y: 0 }}
                           style={styles.spineCard}
                         >
                           {/* Top Pill */}
                           <View style={styles.spineTop}>
-                            <View style={[styles.spinePill, { backgroundColor: deck.pending === 0 ? '#66D283' : deck.color }]}>
-                              {deck.pending === 0 ? (
+                            <View style={[styles.spinePill, { backgroundColor: pending === 0 ? '#66D283' : (deck.color || '#66D283') }]}>
+                              {pending === 0 ? (
                                 <Check size={14} color="#000" strokeWidth={3} />
                               ) : (
-                                <Text style={styles.spinePillText}>{deck.pending}</Text>
+                                <Text style={styles.spinePillText}>{pending}</Text>
                               )}
                             </View>
                           </View>
 
                           {/* Vertical Text */}
                           <View style={styles.verticalTextContainer}>
-                            {renderVerticalText(deck.title)}
+                            {renderVerticalText(formatTitleForSpine(deck.name))}
                           </View>
 
                           {/* Bottom Label */}
-                          <View style={[styles.spineBottom, { backgroundColor: deck.color }]}>
-                            <Text style={styles.spineBottomText}>{deck.pending === 0 ? '完了' : deck.count}</Text>
+                          <View style={[styles.spineBottom, { backgroundColor: deck.color || '#66D283' }]}>
+                            <Text style={styles.spineBottomText}>{pending === 0 ? '完了' : deck.metrics.totalCards}</Text>
                           </View>
                         </LinearGradient>
                       </TouchableOpacity>
@@ -134,28 +160,40 @@ export default function Decks() {
           </View>
         ) : viewMode === 'list' ? (
           <View style={styles.listContainer}>
-            {deckData.map((deck) => (
-              <TouchableOpacity key={deck.id} style={styles.deckCard}>
-                <View style={styles.deckContentRow}>
-                  <View style={styles.deckLeft}>
-                    <View style={styles.deckTitleRow}>
-                      <Text style={styles.deckTitle}>{deck.title.replace('\\n', ' ')}</Text>
-                      <View style={[styles.tagBadge, { backgroundColor: `${deck.color}1A` }]}>
-                        <Text style={[styles.tagText, { color: deck.color }]}>{deck.tag}</Text>
+            {decks.map((deck) => {
+              const pending = Math.min(deck.metrics.newCards, 20) + deck.metrics.learningCards + deck.metrics.reviewCards;
+              const progressRatio = deck.metrics.totalCards > 0 ? (deck.metrics.totalCards - pending) / deck.metrics.totalCards : 1;
+              const progressPercent = Math.max(0, Math.min(100, progressRatio * 100));
+
+              return (
+                <TouchableOpacity 
+                  key={deck.id} 
+                  style={styles.deckCard}
+                  onPress={() => router.push(`/deck/${deck.id}`)}
+                >
+                  <View style={styles.deckContentRow}>
+                    <View style={styles.deckLeft}>
+                      <View style={styles.deckTitleRow}>
+                        <Text style={styles.deckTitle}>{deck.name}</Text>
+                        {deck.tags && deck.tags.length > 0 && (
+                          <View style={[styles.tagBadge, { backgroundColor: '#1C2939' }]}>
+                            <Text style={[styles.tagText, { color: deck.color || '#68A5FF' }]}>{deck.tags[0]}</Text>
+                          </View>
+                        )}
                       </View>
+                      <Text style={styles.deckSubtitle}>{deck.description}</Text>
                     </View>
-                    <Text style={styles.deckSubtitle}>{deck.count} 語</Text>
+                    <View style={styles.deckRight}>
+                      <Text style={[styles.dueCount, { color: pending === 0 ? '#66D283' : (deck.color || Colors.dark.primaryOrange) }]}>{pending}</Text>
+                      <Text style={styles.dueLabel}>予定</Text>
+                    </View>
                   </View>
-                  <View style={styles.deckRight}>
-                    <Text style={[styles.dueCount, { color: deck.color }]}>{deck.pending}</Text>
-                    <Text style={styles.dueLabel}>予定</Text>
+                  <View style={styles.progressBarTrack}>
+                    <View style={[styles.progressBarFill, { width: `${progressPercent}%`, backgroundColor: pending === 0 ? '#66D283' : (deck.color || Colors.dark.primaryOrange) }]} />
                   </View>
-                </View>
-                <View style={styles.progressBarTrack}>
-                  <View style={[styles.progressBarFill, { width: `${deck.progress}%`, backgroundColor: deck.color }]} />
-                </View>
-              </TouchableOpacity>
-            ))}
+                </TouchableOpacity>
+              );
+            })}
             {/* New Deck Button (List) */}
             <TouchableOpacity style={styles.newDeckListCard}>
               <Plus size={24} color={Colors.dark.textSecondary} />
@@ -164,51 +202,63 @@ export default function Decks() {
           </View>
         ) : (
           <View style={styles.gridContainer}>
-            {deckData.map((deck) => (
-              <TouchableOpacity key={deck.id} style={styles.cardWrapper}>
-                <LinearGradient
-                  colors={[`${deck.color}0C`, '#16171B']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 0.5, y: 0 }}
-                  style={styles.card}
+            {decks.map((deck) => {
+              const pending = Math.min(deck.metrics.newCards, 20) + deck.metrics.learningCards + deck.metrics.reviewCards;
+              const progressRatio = deck.metrics.totalCards > 0 ? (deck.metrics.totalCards - pending) / deck.metrics.totalCards : 1;
+              const progressPercent = Math.max(0, Math.min(100, progressRatio * 100));
+
+              return (
+                <TouchableOpacity 
+                  key={deck.id} 
+                  style={styles.cardWrapper}
+                  onPress={() => router.push(`/deck/${deck.id}`)}
                 >
-                  {/* Left Edge Bar */}
-                  <View style={[styles.leftEdge, { backgroundColor: deck.color }]} />
-                  
-                  {/* Card Inner Content */}
-                  <View style={styles.cardInner}>
-                    {/* Top Row: Tag & More */}
-                    <View style={styles.cardTop}>
-                      <View style={[styles.tag, { backgroundColor: `${deck.color}1A` }]}>
-                        <Text style={[styles.tagText, { color: deck.color }]}>{deck.tag}</Text>
+                  <LinearGradient
+                    colors={[`${deck.color || '#66D283'}0C`, '#16171B']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 0.5, y: 0 }}
+                    style={styles.card}
+                  >
+                    {/* Left Edge Bar */}
+                    <View style={[styles.leftEdge, { backgroundColor: deck.color || '#66D283' }]} />
+                    
+                    {/* Card Inner Content */}
+                    <View style={styles.cardInner}>
+                      {/* Top Row: Tag & More */}
+                      <View style={styles.cardTop}>
+                        {deck.tags && deck.tags.length > 0 && (
+                          <View style={[styles.tag, { backgroundColor: `${deck.color || '#68A5FF'}1A` }]}>
+                            <Text style={[styles.tagText, { color: deck.color || '#68A5FF' }]}>{deck.tags[0]}</Text>
+                          </View>
+                        )}
+                        <TouchableOpacity>
+                          <MoreHorizontal size={20} color={Colors.dark.textSecondary} />
+                        </TouchableOpacity>
                       </View>
-                      <TouchableOpacity>
-                        <MoreHorizontal size={20} color={Colors.dark.textSecondary} />
-                      </TouchableOpacity>
-                    </View>
 
-                    {/* Title & Count */}
-                    <View style={styles.titleContainer}>
-                      <Text style={styles.titleText}>{deck.title}</Text>
-                      <Text style={styles.countText}>{deck.count} 語</Text>
-                    </View>
-
-                    <View style={styles.spacer} />
-
-                    {/* Progress & Pending */}
-                    <View style={styles.progressContainer}>
-                      <View style={styles.progressBarBg}>
-                        <View style={[styles.progressBarFill, { backgroundColor: deck.color, width: `${deck.progress}%` }]} />
+                      {/* Title & Count */}
+                      <View style={styles.titleContainer}>
+                        <Text style={styles.titleText}>{deck.name}</Text>
+                        <Text style={styles.countText}>{deck.metrics.totalCards} 語</Text>
                       </View>
-                      <View style={styles.pendingRow}>
-                        <Text style={[styles.pendingNumber, { color: deck.color }]}>{deck.pending}</Text>
-                        <Text style={styles.pendingLabel}>予定</Text>
+
+                      <View style={styles.spacer} />
+
+                      {/* Progress & Pending */}
+                      <View style={styles.progressContainer}>
+                        <View style={styles.progressBarBg}>
+                          <View style={[styles.progressBarFill, { backgroundColor: deck.color || '#66D283', width: `${progressPercent}%` }]} />
+                        </View>
+                        <View style={styles.pendingRow}>
+                          <Text style={[styles.pendingNumber, { color: deck.color || '#66D283' }]}>{pending}</Text>
+                          <Text style={styles.pendingLabel}>予定</Text>
+                        </View>
                       </View>
                     </View>
-                  </View>
-                </LinearGradient>
-              </TouchableOpacity>
-            ))}
+                  </LinearGradient>
+                </TouchableOpacity>
+              );
+            })}
 
             {/* New Deck Button */}
             <TouchableOpacity style={styles.newDeckCard}>
@@ -517,9 +567,14 @@ const styles = StyleSheet.create({
     width: '100%',
     overflow: 'hidden',
   },
-  progressBarFill: {
-    height: '100%',
-    borderRadius: 2,
+  tagBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  tagText: {
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   newDeckListCard: {
     flexDirection: 'row',

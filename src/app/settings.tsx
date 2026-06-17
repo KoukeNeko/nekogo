@@ -249,6 +249,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: Colors.dark.text,
   },
+  sliderValueText: {
+    fontSize: 14,
+    color: Colors.dark.textSecondary,
+  },
   scrollContent: {
     padding: Spacing.three,
     paddingBottom: Spacing.five,
