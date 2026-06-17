@@ -70,12 +70,11 @@ const styles = StyleSheet.create({
         marginHorizontal: 1, // Slight spacing between words if needed
     },
     rt: {
-        fontFamily: Fonts?.sans,
+        fontFamily: Fonts?.serif,
         textAlign: 'center',
     },
     ruby: {
-        fontFamily: Fonts?.sans,
+        fontFamily: Fonts?.serifBold,
         textAlign: 'center',
-        fontWeight: 'bold',
     }
 });

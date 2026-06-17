@@ -30,14 +30,16 @@ export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
 export const Fonts = Platform.select({
   ios: {
-    sans: 'system-ui',
-    serif: 'ui-serif',
+    sans: 'System',
+    serif: 'SourceHanSerif-Regular',
+    serifBold: 'SourceHanSerif-Bold',
     rounded: 'ui-rounded',
     mono: 'ui-monospace',
   },
   default: {
     sans: 'normal',
-    serif: 'serif',
+    serif: 'SourceHanSerif-Regular',
+    serifBold: 'SourceHanSerif-Bold',
     rounded: 'normal',
     mono: 'monospace',
   },
