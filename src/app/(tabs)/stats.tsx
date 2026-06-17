@@ -46,7 +46,7 @@ export default function Stats() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <AppBar 
         centerContent={
           <Text style={{ color: Colors.dark.text, fontSize: 18, fontWeight: 'bold' }}>統計</Text>

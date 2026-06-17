@@ -5,7 +5,7 @@ import { Colors } from "../../constants/theme";
 
 export default function Decks() {
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.content}>
         <Text style={styles.text}>デッキ (Decks) - Coming Soon</Text>
       </View>

@@ -9,7 +9,7 @@ export default function Profile() {
   const [furiganaEnabled, setFuriganaEnabled] = useState(true);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <AppBar 
         leftContent={<Text style={styles.headerTitle}>マイページ</Text>}
         rightContent={

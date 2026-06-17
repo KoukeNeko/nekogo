@@ -20,7 +20,7 @@ export default function Deck() {
   ];
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <AppBar 
         leftContent={
           <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
