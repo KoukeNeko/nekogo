@@ -2,9 +2,9 @@ import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { Colors, Spacing, BORDER_RADIUS, Fonts } from "../constants/theme";
-import { AppBar } from "../components/ui/AppBar";
-import { FuriganaText } from "../components/ui/FuriganaText";
+import { Colors, Spacing, BORDER_RADIUS, Fonts } from "../../constants/theme";
+import { AppBar } from "../../components/ui/AppBar";
+import { FuriganaText } from "../../components/ui/FuriganaText";
 import { ChevronLeft, MoreHorizontal, Plus } from "lucide-react-native";
 
 export default function Deck() {

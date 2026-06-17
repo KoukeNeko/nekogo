@@ -52,6 +52,12 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <User size={24} color={color} />,
         }}
       />
+      <Tabs.Screen
+        name="deck"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }
