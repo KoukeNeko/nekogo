@@ -221,6 +221,7 @@ const styles = StyleSheet.create({
   },
   wordLeft: {
     flex: 1,
+    marginTop: -3, // Slightly shift up to balance Furigana, without overcompensating
   },
   kanjiEnglishRow: {
     flexDirection: 'row',
