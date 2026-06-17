@@ -69,10 +69,12 @@ export default function Stats() {
           <View style={styles.barChartContainer}>
             {barChartData.map((item, index) => (
               <View key={index} style={styles.barColumn}>
-                <View style={[
-                  styles.barFill,
-                  { height: `${(item.count / maxBarValue) * 100}%` }
-                ]} />
+                <View style={styles.barWrapper}>
+                  <View style={[
+                    styles.barFill,
+                    { height: `${(item.count / maxBarValue) * 100}%` }
+                  ]} />
+                </View>
                 <Text style={styles.barLabel}>{item.label}</Text>
               </View>
             ))}
@@ -210,11 +212,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
   },
+  barWrapper: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginBottom: Spacing.two,
+  },
   barFill: {
     width: '70%',
     backgroundColor: '#DF6C53', // Salmon/Orange color from screenshot
     borderRadius: 4,
-    marginBottom: Spacing.two,
   },
   barLabel: {
     color: Colors.dark.textSecondary,
