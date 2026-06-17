@@ -11,19 +11,19 @@ const DummySlider = ({ width = 100, fillPercent = 80, color = Colors.dark.primar
   return (
     <View style={{ width, height: 4, backgroundColor: '#2E3135', borderRadius: 2, justifyContent: 'center', marginHorizontal: 12 }}>
       <View style={{ width: `${fillPercent}%`, height: '100%', backgroundColor: color, borderRadius: 2 }} />
-      <View style={{ 
-        position: 'absolute', 
-        left: `${fillPercent}%`, 
-        width: 16, 
-        height: 16, 
-        borderRadius: 8, 
-        backgroundColor: '#FFF', 
-        marginLeft: -8, 
-        shadowColor: '#000', 
-        shadowOpacity: 0.2, 
+      <View style={{
+        position: 'absolute',
+        left: `${fillPercent}%`,
+        width: 16,
+        height: 16,
+        borderRadius: 8,
+        backgroundColor: '#FFF',
+        marginLeft: -8,
+        shadowColor: '#000',
+        shadowOpacity: 0.2,
         shadowOffset: { width: 0, height: 2 },
-        shadowRadius: 2, 
-        elevation: 2 
+        shadowRadius: 2,
+        elevation: 2
       }} />
     </View>
   );
@@ -50,10 +50,10 @@ export default function SettingsScreen() {
         // Special case for pitch accent colors
         const bg = isActive ? (opt === '上線' || opt === '数字' ? '#5CB3FF' : activeBg) : 'transparent';
         const color = isActive ? (opt === '上線' || opt === '数字' ? '#000' : '#FFF') : Colors.dark.textSecondary;
-        
+
         return (
           <React.Fragment key={opt}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.segmentButton, { backgroundColor: bg }]}
               onPress={() => onChange(opt)}
             >
@@ -70,8 +70,8 @@ export default function SettingsScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <AppBar 
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <AppBar
         leftContent={
           <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
             <ChevronLeft size={28} color={Colors.dark.text} />
@@ -86,9 +86,9 @@ export default function SettingsScreen() {
           </View>
         }
       />
-      
+
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        
+
         {/* Section 1: Engine */}
         <View style={styles.sectionHeader}>
           <View style={styles.redDot} />
@@ -101,11 +101,11 @@ export default function SettingsScreen() {
             <Text style={[styles.sliderValueText, { width: 40, textAlign: 'right' }]}>90%</Text>
           </SettingsRow>
           <SettingsDivider />
-          <SettingsRow label="1日の新規カード上限" valueText="24" showChevron onPress={() => {}} />
+          <SettingsRow label="1日の新規カード上限" valueText="24" showChevron onPress={() => { }} />
           <SettingsDivider />
-          <SettingsRow label="1日の復習上限" valueText="無制限" showChevron onPress={() => {}} />
+          <SettingsRow label="1日の復習上限" valueText="無制限" showChevron onPress={() => { }} />
           <SettingsDivider />
-          <SettingsRow label="学習ステップ" valueText="1m ・ 10m" showChevron onPress={() => {}} />
+          <SettingsRow label="学習ステップ" valueText="1m ・ 10m" showChevron onPress={() => { }} />
           <SettingsDivider />
           <SettingsRow label="新カードの順序">
             {renderSegment(['追加順', 'ランダム'], cardOrder, setCardOrder)}
@@ -146,7 +146,7 @@ export default function SettingsScreen() {
         <SettingsCard>
           <SettingsSwitchRow label="回答時に自動再生" value={autoPlayEnabled} onValueChange={setAutoPlayEnabled} />
           <SettingsDivider />
-          <SettingsRow label="読み上げ音声" valueText="日本語・女性" showChevron onPress={() => {}} />
+          <SettingsRow label="読み上げ音声" valueText="日本語・女性" showChevron onPress={() => { }} />
           <SettingsDivider />
           <SettingsRow label="読み上げ速度" valueText="0.9x">
             <DummySlider width={60} fillPercent={75} color={Colors.dark.primaryOrange} />
@@ -160,7 +160,7 @@ export default function SettingsScreen() {
         <SettingsCard>
           <SettingsSwitchRow label="毎日のリマインダー" value={reminderEnabled} onValueChange={setReminderEnabled} />
           <SettingsDivider />
-          <SettingsRow label="時刻" valueText="20:00" showChevron onPress={() => {}} />
+          <SettingsRow label="時刻" valueText="20:00" showChevron onPress={() => { }} />
         </SettingsCard>
 
         {/* Section 5: Data & Sync */}
@@ -172,25 +172,25 @@ export default function SettingsScreen() {
           <SettingsDivider />
           <SettingsSwitchRow label="自動同期" value={autoSyncEnabled} onValueChange={setAutoSyncEnabled} />
           <SettingsDivider />
-          <SettingsRow label="Anki .apkg を取り込む" showChevron onPress={() => {}} />
+          <SettingsRow label="Anki .apkg を取り込む" showChevron onPress={() => { }} />
           <SettingsDivider />
-          <SettingsRow label="エクスポート" showChevron onPress={() => {}} />
+          <SettingsRow label="エクスポート" showChevron onPress={() => { }} />
           <SettingsDivider />
-          <SettingsRow label="キャッシュを削除" valueText="124 MB" onPress={() => {}} />
+          <SettingsRow label="キャッシュを削除" valueText="124 MB" onPress={() => { }} />
         </SettingsCard>
 
         {/* Section 6: Account */}
         <Text style={styles.sectionHeaderLabel}>アカウント</Text>
         <SettingsCard>
-          <SettingsRow label="メールアドレス" valueText="[email protected]" valueColor="#0066CC" showChevron onPress={() => {}} />
+          <SettingsRow label="メールアドレス" valueText="[email protected]" valueColor="#0066CC" showChevron onPress={() => { }} />
           <SettingsDivider />
-          <SettingsRow label="サブスクリプション" showChevron onPress={() => {}}>
+          <SettingsRow label="サブスクリプション" showChevron onPress={() => { }}>
             <View style={styles.proBadge}>
               <Text style={styles.proBadgeText}>PRO</Text>
             </View>
           </SettingsRow>
           <SettingsDivider />
-          <SettingsRow centeredContent={<Text style={styles.logoutText}>ログアウト</Text>} paddingVertical={16} onPress={() => {}} />
+          <SettingsRow centeredContent={<Text style={styles.logoutText}>ログアウト</Text>} paddingVertical={16} onPress={() => { }} />
         </SettingsCard>
 
         {/* Footer */}
@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: Spacing.three,
-    paddingBottom: 60,
+    paddingBottom: Spacing.five,
   },
   sectionHeader: {
     flexDirection: 'row',
