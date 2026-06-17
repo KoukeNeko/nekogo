@@ -6,7 +6,7 @@ export const getDueCards = (limit: number = 20): VocabItem[] => {
   const now = new Date().getTime();
   
   // Fetch cards where due date is in the past, or it's a new card (due = 0 or near now)
-  const result = db.execute(
+  const result = db.executeSync(
     `SELECT c.*, n.kanji, n.english 
      FROM cards c
      JOIN notes n ON c.note_id = n.id
@@ -37,7 +37,7 @@ export const getDueCards = (limit: number = 20): VocabItem[] => {
 };
 
 export const updateCardState = (noteId: string, fsrsCard: Card) => {
-  db.execute(
+  db.executeSync(
     `UPDATE cards SET
       due = ?,
       stability = ?,

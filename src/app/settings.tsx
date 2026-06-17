@@ -215,10 +215,20 @@ export default function SettingsScreen() {
           </SettingsRow>
         </SettingsCard>
 
+        {/* Section 7: About / Legal */}
+        <Text style={styles.sectionHeaderLabel}>情報</Text>
+        <SettingsCard>
+          <SettingsRow 
+            label="ライセンス (Licenses)" 
+            showChevron 
+            onPress={() => router.push('/licenses')} 
+          />
+        </SettingsCard>
+
         {/* Footer */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>Kioku v1.0.0 (1024)</Text>
-          <Text style={styles.footerText}>辞書データ JMdict ・ KANJIDIC2 ・ KanjiVG ・ Tatoeba (CC)</Text>
+          <Text style={styles.footerText}>Made with ❤️ for Japanese Learners</Text>
         </View>
 
       </ScrollView>

@@ -7,7 +7,7 @@ export const db = open({
 export const initDB = () => {
   try {
     // Create 'notes' table
-    db.execute(`
+    db.executeSync(`
       CREATE TABLE IF NOT EXISTS notes (
         id TEXT PRIMARY KEY,
         kanji TEXT NOT NULL,
@@ -16,7 +16,7 @@ export const initDB = () => {
     `);
 
     // Create 'cards' table for FSRS
-    db.execute(`
+    db.executeSync(`
       CREATE TABLE IF NOT EXISTS cards (
         id TEXT PRIMARY KEY,
         note_id TEXT NOT NULL,
@@ -34,7 +34,7 @@ export const initDB = () => {
     `);
 
     // Index for quick fetching of due cards
-    db.execute(`
+    db.executeSync(`
       CREATE INDEX IF NOT EXISTS idx_cards_due ON cards (due);
     `);
 

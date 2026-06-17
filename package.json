@@ -43,7 +43,11 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "seed:download": "node scripts/etl/download-sources.mjs",
+    "seed:build": "node scripts/etl/build-n5-seed.mjs",
+    "seed:verify": "node scripts/verify-n5-seed.mjs",
+    "seed": "npm run seed:download && npm run seed:build && npm run seed:verify"
   },
   "private": true
 }
