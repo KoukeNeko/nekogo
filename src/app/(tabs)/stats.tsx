@@ -149,13 +149,15 @@ const styles = StyleSheet.create({
     fontFamily: Fonts?.sans,
   },
   scrollContent: {
-    padding: Spacing.four,
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.two,
+    paddingBottom: 120,
   },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: Spacing.three,
-    marginBottom: Spacing.five,
+    marginBottom: Spacing.three,
   },
   summaryCard: {
     flex: 1,
@@ -183,13 +185,13 @@ const styles = StyleSheet.create({
     borderColor: '#2E3135',
     borderRadius: BORDER_RADIUS.lg,
     padding: Spacing.three, // Reduced padding
-    marginBottom: Spacing.five,
+    marginBottom: Spacing.three,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Spacing.four,
+    marginBottom: Spacing.three,
   },
   sectionTitle: {
     color: Colors.dark.text,

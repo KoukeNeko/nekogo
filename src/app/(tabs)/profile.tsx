@@ -97,7 +97,7 @@ export default function Profile() {
         </View>
 
         {/* Upgrade Card */}
-        <TouchableOpacity style={styles.upgradeCardWrapper}>
+        <TouchableOpacity>
           <LinearGradient
             colors={['rgba(255, 90, 54, 0.15)', '#16171B']}
             start={{ x: 0, y: 0 }}
@@ -278,9 +278,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginBottom: Spacing.three,
     marginLeft: Spacing.one,
-  },
-  upgradeCardWrapper: {
-    marginTop: Spacing.two,
   },
   upgradeCard: {
     borderRadius: BORDER_RADIUS.xl,
