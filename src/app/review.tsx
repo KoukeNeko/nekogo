@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Switch, ScrollView } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
 import { X, Volume2 } from "lucide-react-native";
 import Svg, { Line, Circle } from "react-native-svg";
 import { Colors, Spacing, Fonts, BORDER_RADIUS } from "../constants/theme";
@@ -8,11 +8,13 @@ import { FlashCard } from "../components/ui/FlashCard";
 import { RatingButtons } from "../components/ui/RatingButtons";
 import { AppBar } from "../components/ui/AppBar";
 import { Rating } from "ts-fsrs";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useRouter } from "expo-router";
 
 export default function Review() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [isFlipped, setIsFlipped] = useState(false);
 
   // Mock data for the flashcard
@@ -116,7 +118,7 @@ export default function Review() {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <AppBar 
         leftContent={
           <TouchableOpacity 
@@ -142,7 +144,7 @@ export default function Review() {
         }
       />
 
-      <View style={styles.mainArea}>
+      <View style={[styles.mainArea, { paddingTop: Math.max(insets.top, 16) + 76 }]}>
         <FlashCard 
           frontContent={renderFront()} 
           backContent={renderBack()} 
@@ -151,7 +153,7 @@ export default function Review() {
         />
       </View>
 
-      <View style={styles.bottomArea}>
+      <View style={[styles.bottomArea, { paddingBottom: Math.max(insets.bottom, Spacing.two) }]}>
         {isFlipped ? (
           <RatingButtons onRating={handleRating} />
         ) : (
@@ -163,7 +165,7 @@ export default function Review() {
           </View>
         )}
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -220,7 +222,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
   },
   bottomArea: {
-    paddingBottom: Spacing.two,
     width: '100%',
   },
   actionWrapper: {

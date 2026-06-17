@@ -1,5 +1,6 @@
 import React from "react";
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Colors, Spacing, BORDER_RADIUS } from "../../constants/theme";
 import { Settings, User, Flame } from "lucide-react-native";
@@ -7,9 +8,10 @@ import { AppBar } from "../../components/ui/AppBar";
 
 export default function Home() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <AppBar 
         leftContent={
           <TouchableOpacity style={styles.iconButton}>
@@ -28,7 +30,7 @@ export default function Home() {
           </>
         }
       />
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: Math.max(insets.top, 16) + 76 }]}>
 
         {/* Goal Area (Simplified) */}
         <View style={styles.goalSection}>
@@ -61,7 +63,7 @@ export default function Home() {
         </View>
 
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -72,7 +74,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: Spacing.four,
-    paddingBottom: Spacing.six,
+    paddingBottom: 100, // Clear the absolute TabBar
   },
   iconButton: {
     padding: Spacing.two,

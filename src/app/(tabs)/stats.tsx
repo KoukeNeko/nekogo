@@ -1,11 +1,13 @@
 import React from "react";
-import { View, Text, StyleSheet, SafeAreaView, ScrollView } from "react-native";
+import { View, Text, StyleSheet, ScrollView } from "react-native";
 import { Colors, Spacing, BORDER_RADIUS } from "../../constants/theme";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Settings, User, Flame } from "lucide-react-native";
 import { AppBar } from "../../components/ui/AppBar";
 import { TouchableOpacity } from "react-native";
 
 export default function Stats() {
+  const insets = useSafeAreaInsets();
   
   // Mock data for bar chart
   const barChartData = [
@@ -45,13 +47,13 @@ export default function Stats() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <AppBar 
         centerContent={
           <Text style={{ color: Colors.dark.text, fontSize: 18, fontWeight: 'bold' }}>統計</Text>
         }
       />
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: Math.max(insets.top, 16) + 76 }]} showsVerticalScrollIndicator={false}>
         
         {/* Top Summary Cards */}
         <View style={styles.summaryRow}>
@@ -132,7 +134,7 @@ export default function Stats() {
         </View>
 
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -143,7 +145,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: Spacing.four,
-    paddingTop: Spacing.two,
+    paddingBottom: 100, // Clear absolute TabBar
   },
   summaryRow: {
     flexDirection: 'row',
