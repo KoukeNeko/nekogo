@@ -3,19 +3,21 @@ import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView } fr
 import { useRouter } from "expo-router";
 import { Colors, Spacing, BORDER_RADIUS } from "../../constants/theme";
 import { Settings, User, Flame } from "lucide-react-native";
+import { AppBar } from "../../components/ui/AppBar";
 
 export default function Home() {
   const router = useRouter();
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Header Area */}
-        <View style={styles.header}>
+      <AppBar 
+        leftContent={
           <TouchableOpacity style={styles.iconButton}>
             <Settings size={24} color={Colors.dark.textSecondary} />
           </TouchableOpacity>
-          <View style={styles.headerRight}>
+        }
+        rightContent={
+          <>
             <View style={styles.streakContainer}>
               <Flame size={20} color={Colors.dark.primaryOrange} />
               <Text style={styles.streakText}>12</Text>
@@ -23,8 +25,10 @@ export default function Home() {
             <TouchableOpacity style={styles.avatarButton}>
               <User size={24} color={Colors.dark.textSecondary} />
             </TouchableOpacity>
-          </View>
-        </View>
+          </>
+        }
+      />
+      <ScrollView contentContainerStyle={styles.scrollContent}>
 
         {/* Goal Area (Simplified) */}
         <View style={styles.goalSection}>
@@ -70,19 +74,8 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
     paddingBottom: Spacing.six,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Spacing.five,
-  },
   iconButton: {
     padding: Spacing.two,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.three,
   },
   streakContainer: {
     flexDirection: 'row',
