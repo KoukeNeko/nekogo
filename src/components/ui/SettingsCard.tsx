@@ -1,6 +1,6 @@
 import React, { ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Switch, ViewStyle } from 'react-native';
-import { Colors, BORDER_RADIUS } from '../../constants/theme';
+import { Colors, BORDER_RADIUS, Spacing } from '../../constants/theme';
 import { ChevronRight } from 'lucide-react-native';
 
 interface SettingsCardProps {
@@ -98,12 +98,12 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: '#16171B',
     borderRadius: BORDER_RADIUS.xl,
-    paddingHorizontal: 20,
+    paddingHorizontal: Spacing.three,
     paddingVertical: 6, // Adding 6px so that rows with 14px padding result in 20px total visual padding
     borderWidth: 1,
     borderColor: '#2E3135',
     overflow: 'hidden',
-    marginBottom: 20,
+    marginBottom: Spacing.three,
   },
   divider: {
     height: 1,
@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   iconWrapper: {
-    marginRight: 12,
+    marginRight: Spacing.three,
   },
   rowLabel: {
     color: Colors.dark.text,
@@ -129,12 +129,12 @@ const styles = StyleSheet.create({
   rowSubLabel: {
     color: Colors.dark.textSecondary,
     fontSize: 12,
-    marginTop: 4,
+    marginTop: Spacing.one,
   },
   rowRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: Spacing.two,
   },
   rowValue: {
     color: Colors.dark.textSecondary,

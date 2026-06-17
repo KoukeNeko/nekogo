@@ -80,6 +80,11 @@ export default function SettingsScreen() {
         centerContent={
           <Text style={styles.headerTitle}>設定</Text>
         }
+        rightContent={
+          <View style={styles.iconButton} pointerEvents="none">
+            <ChevronLeft size={28} color="transparent" />
+          </View>
+        }
       />
       
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -220,14 +225,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: Spacing.two,
-    paddingHorizontal: 4,
+    paddingHorizontal: Spacing.one,
   },
   redDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
     backgroundColor: Colors.dark.primaryOrange,
-    marginRight: 8,
+    marginRight: Spacing.two,
   },
   sectionTitle: {
     color: Colors.dark.textSecondary,
@@ -238,7 +243,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: Spacing.four,
     marginBottom: Spacing.two,
-    paddingHorizontal: 4,
+    paddingHorizontal: Spacing.one,
   },
   row: {
     flexDirection: 'row',
@@ -310,8 +315,8 @@ const styles = StyleSheet.create({
   },
   footer: {
     alignItems: 'center',
-    marginTop: 40,
-    gap: 4,
+    marginTop: Spacing.five,
+    gap: Spacing.one,
   },
   footerText: {
     color: Colors.dark.textSecondary,

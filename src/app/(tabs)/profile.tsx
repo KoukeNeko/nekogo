@@ -13,7 +13,7 @@ export default function Profile() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <AppBar 
+      <AppBar
         leftContent={<Text style={styles.headerTitle}>マイページ</Text>}
         rightContent={
           <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/settings')}>
@@ -22,7 +22,7 @@ export default function Profile() {
         }
       />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        
+
         {/* Profile Card */}
         <TouchableOpacity style={styles.profileCard}>
           <View style={styles.profileTop}>
@@ -37,7 +37,7 @@ export default function Profile() {
             </View>
             <ChevronRight size={20} color={Colors.dark.textSecondary} />
           </View>
-          
+
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
               <Text style={[styles.statValue, { color: Colors.dark.primaryOrange }]}>12</Text>
@@ -65,7 +65,7 @@ export default function Profile() {
               <Text style={styles.goalProgressLabel}> 日</Text>
             </View>
           </View>
-          
+
           <View style={styles.daysRow}>
             {[
               { day: '月', status: 'done' },
@@ -95,46 +95,6 @@ export default function Profile() {
             ))}
           </View>
         </View>
-
-        {/* Menu Section */}
-        <Text style={styles.sectionTitle}>メニュー</Text>
-        <SettingsCard>
-          <SettingsRow 
-            label="設定" 
-            icon={<Settings size={20} color={Colors.dark.textSecondary} />} 
-            showChevron 
-            onPress={() => router.push('/settings')} 
-          />
-          <SettingsDivider />
-          <SettingsRow 
-            label="実績・バッジ" 
-            valueText="12"
-            icon={<Trophy size={20} color={Colors.dark.textSecondary} />} 
-            showChevron 
-            onPress={() => {}} 
-          />
-          <SettingsDivider />
-          <SettingsRow 
-            label="学習統計" 
-            icon={<BarChart2 size={20} color={Colors.dark.textSecondary} />} 
-            showChevron 
-            onPress={() => router.push('/stats')} 
-          />
-          <SettingsDivider />
-          <SettingsRow 
-            label="ヘルプ・FAQ" 
-            icon={<HelpCircle size={20} color={Colors.dark.textSecondary} />} 
-            showChevron 
-            onPress={() => {}} 
-          />
-          <SettingsDivider />
-          <SettingsRow 
-            label="フィードバックを送る" 
-            icon={<MessageSquare size={20} color={Colors.dark.textSecondary} />} 
-            showChevron 
-            onPress={() => {}} 
-          />
-        </SettingsCard>
 
         {/* Upgrade Card */}
         <TouchableOpacity style={styles.upgradeCardWrapper}>
@@ -176,23 +136,23 @@ const styles = StyleSheet.create({
     padding: Spacing.one,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.two,
     paddingBottom: 120, // Huge padding to clear the Tab Bar
   },
   profileCard: {
     backgroundColor: '#16171B',
     borderRadius: BORDER_RADIUS.xl,
-    padding: 20,
+    padding: Spacing.three,
     borderWidth: 1,
     borderColor: '#2E3135',
-    marginBottom: 20,
+    marginBottom: Spacing.three,
   },
   profileTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: Spacing.three,
   },
   profileInfo: {
     flexDirection: 'row',
@@ -251,16 +211,16 @@ const styles = StyleSheet.create({
   goalCard: {
     backgroundColor: '#16171B',
     borderRadius: BORDER_RADIUS.xl,
-    padding: 20,
+    padding: Spacing.three,
     borderWidth: 1,
     borderColor: '#2E3135',
-    marginBottom: 20,
+    marginBottom: Spacing.three,
   },
   goalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: Spacing.three,
   },
   goalTitle: {
     color: Colors.dark.text,
@@ -287,7 +247,7 @@ const styles = StyleSheet.create({
   },
   dayCol: {
     alignItems: 'center',
-    gap: 8,
+    gap: Spacing.two,
   },
   dayCircle: {
     width: 36,
@@ -317,10 +277,10 @@ const styles = StyleSheet.create({
     color: Colors.dark.textSecondary,
     fontSize: 13,
     marginBottom: Spacing.three,
-    marginLeft: 4,
+    marginLeft: Spacing.one,
   },
   upgradeCardWrapper: {
-    marginTop: 8,
+    marginTop: Spacing.two,
   },
   upgradeCard: {
     borderRadius: BORDER_RADIUS.xl,
@@ -332,17 +292,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 20,
+    padding: Spacing.three,
   },
   upgradeInfo: {
     flex: 1,
-    paddingRight: 12,
+    paddingRight: Spacing.three,
   },
   upgradeTitle: {
     color: Colors.dark.text,
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 4,
+    marginBottom: Spacing.one,
   },
   upgradeSub: {
     color: Colors.dark.textSecondary,
@@ -350,7 +310,7 @@ const styles = StyleSheet.create({
   },
   upgradeButton: {
     backgroundColor: Colors.dark.primaryOrange,
-    paddingHorizontal: 16,
+    paddingHorizontal: Spacing.three,
     paddingVertical: 10,
     borderRadius: BORDER_RADIUS.sm,
   },
