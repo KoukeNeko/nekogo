@@ -1,30 +1,43 @@
 import { Stack } from "expo-router";
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { SettingsProvider } from '../context/SettingsContext';
 import { initDB } from '../db/schema';
+import { attachContentDb } from '../db/contentDb';
 import { seedDatabaseIfEmpty } from '../db/seed';
 
 SplashScreen.preventAutoHideAsync();
 
-// Initialize Database on App Start
-initDB();
-seedDatabaseIfEmpty();
-
 export default function RootLayout() {
+  const [dbReady, setDbReady] = useState(false);
   const [loaded, error] = useFonts({
     'SourceHanSerif-Regular': require('../../assets/fonts/SourceHanSerifJP-Regular.otf'),
     'SourceHanSerif-Bold': require('../../assets/fonts/SourceHanSerifJP-Bold.otf'),
   });
 
+  // DB 初始化需先掛載唯讀內容庫（async 複製），再建主庫資料表與種子。
   useEffect(() => {
-    if (loaded || error) {
+    (async () => {
+      try {
+        initDB();
+        await attachContentDb();
+        seedDatabaseIfEmpty();
+      } catch (dbError) {
+        console.error('❌ 資料庫初始化失敗:', dbError);
+      } finally {
+        setDbReady(true);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    if ((loaded || error) && dbReady) {
       SplashScreen.hideAsync();
     }
-  }, [loaded, error]);
+  }, [loaded, error, dbReady]);
 
-  if (!loaded && !error) {
+  if ((!loaded && !error) || !dbReady) {
     return null;
   }
 

@@ -2,10 +2,38 @@ import { useState, useMemo, useEffect } from 'react';
 import { Card, Rating, processAnswer, formatInterval, f } from '../services/fsrs';
 import { getDueCards, updateCardState } from '../db/repositories/cardRepository';
 
+export interface FuriganaChunk {
+  ruby: string;
+  rt?: string;
+}
+
+export interface ExampleSentence {
+  jp: string;
+  furigana: FuriganaChunk[];
+  en: string;
+}
+
+export interface KanjiInfo {
+  char: string;
+  strokes: string[];
+  strokeCount: number | null;
+  jlpt: number | null;
+  on: string[];
+  kun: string[];
+  meanings: string[];
+}
+
+// 由 cardRepository 從 content 庫充實：卡面 furigana + 釋義 + pitch + 例句 + 構成漢字。
 export interface VocabItem {
   id: string;
-  kanji: { ruby: string; rt?: string }[];
+  kanji: FuriganaChunk[]; // 卡面 furigana 疊字段落（沿用既有欄位名）
+  reading: string;
   english: string;
+  pos: string | null;
+  pitch: number | null;
+  jlpt: number | null;
+  example: ExampleSentence | null;
+  kanjiList: KanjiInfo[]; // 構成漢字
   fsrsCard: Card;
 }
 
@@ -55,9 +83,9 @@ export const useReviewSession = (deckId?: string) => {
     const recordLog = processAnswer(currentItem.fsrsCard, rating, now);
     const newFsrsCard = recordLog.card;
 
-    // Persist to SQLite
+    // Persist to SQLite (+ revlog with the rating)
     try {
-      updateCardState(currentItem.id, newFsrsCard);
+      updateCardState(currentItem.id, newFsrsCard, rating);
     } catch (e) {
       console.error('Failed to update card state in DB:', e);
     }

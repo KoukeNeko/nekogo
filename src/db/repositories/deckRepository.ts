@@ -35,8 +35,7 @@ export const getAllDecksWithMetrics = (): Deck[] => {
       SUM(CASE WHEN (c.state = 1 OR c.state = 3) AND c.due <= ? THEN 1 ELSE 0 END) as learningCards,
       SUM(CASE WHEN c.state = 2 AND c.due <= ? THEN 1 ELSE 0 END) as reviewCards
     FROM decks d
-    LEFT JOIN notes n ON n.deck_id = d.id
-    LEFT JOIN cards c ON c.note_id = n.id
+    LEFT JOIN cards c ON c.deck_id = d.id
     GROUP BY d.id
   `;
 

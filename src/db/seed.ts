@@ -1,79 +1,60 @@
 import { db } from './schema';
 import { createNewCard } from '../services/fsrs';
-import vocabSeed from '../data/vocabSeed.json';
+import { CONTENT_ALIAS } from './contentDb';
 
-interface FuriganaSegment {
-  ruby: string;
-  rt?: string;
-}
+const JLPT_LEVELS = [5, 4, 3, 2, 1];
 
-// 由 scripts/etl/build-vocab-seed.mjs 從 open-anki-jlpt-decks + JmdictFurigana 產生。
-interface SeedCard {
-  id: string;
-  expression: string;
-  reading: string;
-  furigana: FuriganaSegment[];
-  english: string;
-  jlpt: number;
-  aligned: boolean;
-}
-
-const seedCards = (vocabSeed as { cards: SeedCard[] }).cards;
-
-const insertSeedCard = (card: SeedCard) => {
-  // notes.kanji 沿用既有契約：JSON 字串化的 furigana 段落 [{ruby, rt}]，
-  // 與 cardRepository 的 JSON.parse 及 FuriganaText 元件相容。
-  db.executeSync(
-    'INSERT INTO notes (id, kanji, english, deck_id) VALUES (?, ?, ?, ?)',
-    [card.id, JSON.stringify(card.furigana), card.english, `deck-n${card.jlpt}`]
-  );
-
-  const fsrsCard = createNewCard();
-  db.executeSync(
-    `INSERT INTO cards (
-      id, note_id, due, stability, difficulty, elapsed_days, scheduled_days, reps, lapses, state, last_review
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      `card-${card.id}`,
-      card.id,
-      fsrsCard.due.getTime(),
-      fsrsCard.stability,
-      fsrsCard.difficulty,
-      fsrsCard.elapsed_days,
-      fsrsCard.scheduled_days,
-      fsrsCard.reps,
-      fsrsCard.lapses,
-      fsrsCard.state,
-      fsrsCard.last_review ? fsrsCard.last_review.getTime() : null,
-    ]
-  );
-};
-
+/**
+ * 建立 JLPT 牌組卡片：每個 JLPT 詞（content.vocab.jlpt 有值）生一張卡，
+ * 指向該詞 (vocab_id) 並歸入 deck-n{level}。非 JLPT 詞留在 content 當目錄（之後其他牌組/搜尋用）。
+ *
+ * 需在 content 庫 ATTACH 之後呼叫。卡片已存在則略過（cards 為使用者狀態，不重灌）。
+ */
 export const seedDatabaseIfEmpty = () => {
-  const result = db.executeSync('SELECT COUNT(*) as count FROM notes');
-  const count = (result.rows[0] as any)?.count || 0;
-
-  if (count === seedCards.length) {
+  const countRow = db.executeSync('SELECT COUNT(*) AS count FROM cards').rows[0] as any;
+  if ((countRow?.count ?? 0) > 0) {
     return;
   }
 
-  if (count > 0 && count !== seedCards.length) {
-    console.log(`⚠️ Database has ${count} cards, but seed has ${seedCards.length}. Re-seeding...`);
-    db.executeSync('DELETE FROM notes');
-    db.executeSync('DELETE FROM cards');
-  }
-
-  console.log(`🌱 Seeding database with ${seedCards.length} vocabulary cards...`);
+  console.log('🌱 由 content.vocab 建立 JLPT 牌組卡片…');
   db.executeSync('BEGIN TRANSACTION');
 
   try {
-    for (const card of seedCards) {
-      insertSeedCard(card);
+    let total = 0;
+    for (const level of JLPT_LEVELS) {
+      const vocab = (db.executeSync(
+        `SELECT id FROM ${CONTENT_ALIAS}.vocab WHERE jlpt = ?`,
+        [level],
+      ).rows ?? []) as any[];
+
+      for (const row of vocab) {
+        const card = createNewCard();
+        db.executeSync(
+          `INSERT INTO cards (
+            id, vocab_id, deck_id, due, stability, difficulty, elapsed_days, scheduled_days, reps, lapses, state, last_review
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            `card-${row.id}`,
+            row.id,
+            `deck-n${level}`,
+            card.due.getTime(),
+            card.stability,
+            card.difficulty,
+            card.elapsed_days,
+            card.scheduled_days,
+            card.reps,
+            card.lapses,
+            card.state,
+            card.last_review ? card.last_review.getTime() : null,
+          ],
+        );
+        total += 1;
+      }
     }
     db.executeSync('COMMIT');
-    console.log('✅ Seed completed successfully!');
+    console.log(`✅ 已建立 ${total} 張卡片`);
   } catch (error) {
     db.executeSync('ROLLBACK');
-    console.error('❌ Failed to seed database:', error);
+    console.error('❌ 建立卡片失敗:', error);
   }
 };

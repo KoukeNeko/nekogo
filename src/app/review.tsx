@@ -15,36 +15,13 @@ import { PenTool } from "lucide-react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useReviewSession } from "../hooks/useReviewSession";
 import { ActivityIndicator } from "react-native";
-import kanjiData from "../data/kanjiData.json";
 import { KanjiStrokeBoard } from "../components/ui/KanjiStrokeBoard";
 import { PitchAccent } from "../components/ui/PitchAccent";
-import vocabExtra from "../data/vocabExtra.json";
-
-interface KanjiEntry {
-    strokes: string[];
-    strokeCount: number | null;
-    grade: number | null;
-    jlpt: number | null;
-    frequency: number | null;
-    on: string[];
-    kun: string[];
-    meanings: string[];
-}
-
-const KANJI_BY_CHAR = kanjiData.kanji as Record<string, KanjiEntry>;
 
 interface FuriganaSegment {
     ruby: string;
     rt?: string;
 }
-
-// 由 scripts/etl/build-vocab-extra.mjs 產生：每張卡的例句（Tanaka）+ 音高重音（Kanjium）。
-interface VocabExtraEntry {
-    pitch: number | null;
-    example: { jp: string; furigana: FuriganaSegment[]; en: string } | null;
-}
-
-const VOCAB_EXTRA = vocabExtra as Record<string, VocabExtraEntry>;
 
 const readingOf = (chunks: FuriganaSegment[]): string =>
     chunks.map((chunk) => chunk.rt ?? chunk.ruby).join('');
@@ -113,22 +90,28 @@ export default function Review() {
     rt: chunk.rt
   }));
 
-  const expression = displayChunks.map((c: any) => c.ruby).join('');
-  const uniqueKanjis = Array.from(new Set(expression.match(/[\u4e00-\u9faf]/g) || []));
-  const validKanjis = uniqueKanjis.filter(k => KANJI_BY_CHAR[k as string]);
 
-  // 每張卡的讀音、例句、音高重音（依卡片 id 查表，與牌組資料分離）。
+  // 讀音 / 例句 / 音高 / 構成漢字 皆由 content 庫充實後帶在 currentItem 上。
   const reading = readingOf(displayChunks);
-  const extra = VOCAB_EXTRA[currentItem.id];
-  const example = extra?.example ?? null;
-  const pitch = extra?.pitch ?? null;
+  const example = currentItem.example;
+  const pitch = currentItem.pitch;
+  const kanjiList = currentItem.kanjiList;
+  const firstKanji = kanjiList[0]?.char;
 
   const handleKanjiReplay = (k: string) => {
     setKanjiTriggers(prev => ({ ...prev, [k]: (prev[k] || 0) + 1 }));
   };
 
+  const getDeckLabel = () => {
+    if (currentItem.jlpt) {
+      return `JLPT N${currentItem.jlpt} 語彙`;
+    }
+    return '語彙';
+  };
+
   const renderFront = () => (
     <View style={styles.frontContent}>
+      <Text style={styles.categoryLabel}>{getDeckLabel()}</Text>
       <View style={styles.wordContainer}>
         <FuriganaText chunks={displayChunks} fontSize={56} />
       </View>
@@ -142,6 +125,7 @@ export default function Review() {
     <ScrollView style={styles.backContent} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 140 }}>
       {/* Top Word Area */}
       <View style={styles.backTopArea}>
+        <Text style={[styles.categoryLabel, { marginBottom: Spacing.two }]}>{getDeckLabel()}</Text>
         <FuriganaText chunks={displayChunks} fontSize={48} />
       </View>
       
@@ -159,11 +143,7 @@ export default function Review() {
 
         <View style={styles.pitchRightArea}>
           <TouchableOpacity style={styles.pitchPill} onPress={() => {
-            if (validKanjis.length > 0) {
-              router.push(`/stroke-order?kanji=${validKanjis[0]}`);
-            } else {
-              router.push('/stroke-order');
-            }
+            router.push(firstKanji ? `/stroke-order?kanji=${firstKanji}` : '/stroke-order');
           }}>
             <PenTool size={14} color={Colors.dark.pitchLine} style={{ marginRight: 4 }} />
             <Text style={styles.pitchPillText}>筆順</Text>
@@ -198,19 +178,19 @@ export default function Review() {
       )}
 
       {/* Embedded Kanji Stroke Orders */}
-      {validKanjis.length > 0 && (
+      {kanjiList.length > 0 && (
         <View style={styles.sectionArea}>
           <Text style={styles.sectionTitle}>構成漢字</Text>
-          {validKanjis.map((k) => {
-            const entry = KANJI_BY_CHAR[k as string];
+          {kanjiList.map((entry) => {
+            const k = entry.char;
             const paths = entry.strokes || [];
-            const trigger = kanjiTriggers[k as string] || 0;
+            const trigger = kanjiTriggers[k] || 0;
             const readingStr = [entry.kun.join('、'), entry.on.join('、')].filter(Boolean).join('  •  ');
             const meaningStr = entry.meanings.slice(0, 3).join(', ');
 
             return (
               <View key={k} style={styles.kanjiRow}>
-                <TouchableOpacity onPress={() => handleKanjiReplay(k as string)} style={styles.kanjiBoardWrapper}>
+                <TouchableOpacity onPress={() => handleKanjiReplay(k)} style={styles.kanjiBoardWrapper}>
                   <KanjiStrokeBoard paths={paths} trigger={trigger} size={84} />
                 </TouchableOpacity>
                 <View style={styles.kanjiInfoRight}>

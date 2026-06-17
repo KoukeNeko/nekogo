@@ -1,93 +1,117 @@
 import { db } from '../schema';
 import { Card } from '../../services/fsrs';
-import { VocabItem } from '../../hooks/useReviewSession';
+import { VocabItem, FuriganaChunk, ExampleSentence, KanjiInfo } from '../../hooks/useReviewSession';
+import { CONTENT_ALIAS as C } from '../contentDb';
+
+const parseJson = <T>(value: string | null, fallback: T): T => {
+  if (!value) return fallback;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return fallback;
+  }
+};
+
+// 取該詞的一句例句（content.vocab_example → content.example）。
+const loadExample = (vocabId: string): ExampleSentence | null => {
+  const row = db.executeSync(
+    `SELECT e.jp, e.furigana, e.en FROM ${C}.example e
+     JOIN ${C}.vocab_example ve ON e.id = ve.example_id
+     WHERE ve.vocab_id = ? LIMIT 1`,
+    [vocabId],
+  ).rows?.[0] as any;
+  if (!row) return null;
+  return { jp: row.jp, furigana: parseJson<FuriganaChunk[]>(row.furigana, []), en: row.en };
+};
+
+// 取該詞的構成漢字（content.vocab_kanji → content.kanji）。
+const loadKanjiList = (vocabId: string): KanjiInfo[] => {
+  const rows = (db.executeSync(
+    `SELECT k.char, k.strokes, k.stroke_count, k.jlpt, k.on_readings, k.kun_readings, k.meanings
+     FROM ${C}.kanji k JOIN ${C}.vocab_kanji vk ON k.char = vk.char
+     WHERE vk.vocab_id = ?`,
+    [vocabId],
+  ).rows ?? []) as any[];
+  return rows.map((r) => ({
+    char: r.char,
+    strokes: parseJson<string[]>(r.strokes, []),
+    strokeCount: r.stroke_count ?? null,
+    jlpt: r.jlpt ?? null,
+    on: parseJson<string[]>(r.on_readings, []),
+    kun: parseJson<string[]>(r.kun_readings, []),
+    meanings: parseJson<string[]>(r.meanings, []),
+  }));
+};
+
+// cards JOIN content.vocab 的一列 → 充實後的 VocabItem。
+const toVocabItem = (row: any): VocabItem => ({
+  id: row.vocab_id,
+  kanji: parseJson<FuriganaChunk[]>(row.furigana, [{ ruby: row.expression }]),
+  reading: row.reading,
+  english: row.gloss,
+  pos: row.pos ?? null,
+  pitch: row.pitch ?? null,
+  jlpt: row.jlpt ?? null,
+  example: loadExample(row.vocab_id),
+  kanjiList: loadKanjiList(row.vocab_id),
+  fsrsCard: {
+    due: new Date(row.due),
+    stability: row.stability,
+    difficulty: row.difficulty,
+    elapsed_days: row.elapsed_days,
+    scheduled_days: row.scheduled_days,
+    reps: row.reps,
+    lapses: row.lapses,
+    state: row.state,
+    last_review: row.last_review ? new Date(row.last_review) : undefined,
+  } as Card,
+});
 
 export const getDailyMetrics = (deckId?: string) => {
-  const now = new Date().getTime();
-  
-  const baseCondition = deckId ? `AND n.deck_id = '${deckId}'` : '';
-  const joinNotes = deckId ? `JOIN notes n ON cards.note_id = n.id` : '';
-  
-  // New cards: state = 0
-  const newResult = db.executeSync(`SELECT COUNT(*) as count FROM cards ${joinNotes} WHERE state = 0 ${baseCondition}`);
-  const newCards = (newResult.rows[0] as any)?.count || 0;
+  const now = Date.now();
+  const deckClause = deckId ? 'AND deck_id = ?' : '';
+  const withDeck = (params: any[]) => (deckId ? [...params, deckId] : params);
 
-  // Learning cards: state = 1 (Learning) OR state = 3 (Relearning)
-  const learningResult = db.executeSync(`SELECT COUNT(*) as count FROM cards ${joinNotes} WHERE (state = 1 OR state = 3) AND due <= ? ${baseCondition}`, [now]);
-  const learningCards = (learningResult.rows[0] as any)?.count || 0;
-
-  // Review cards: state = 2 (Review)
-  const reviewResult = db.executeSync(`SELECT COUNT(*) as count FROM cards ${joinNotes} WHERE state = 2 AND due <= ? ${baseCondition}`, [now]);
-  const reviewCards = (reviewResult.rows[0] as any)?.count || 0;
+  const newCards =
+    (db.executeSync(`SELECT COUNT(*) AS c FROM cards WHERE state = 0 ${deckClause}`, withDeck([])).rows[0] as any)?.c || 0;
+  const learningCards =
+    (db.executeSync(`SELECT COUNT(*) AS c FROM cards WHERE (state = 1 OR state = 3) AND due <= ? ${deckClause}`, withDeck([now])).rows[0] as any)?.c || 0;
+  const reviewCards =
+    (db.executeSync(`SELECT COUNT(*) AS c FROM cards WHERE state = 2 AND due <= ? ${deckClause}`, withDeck([now])).rows[0] as any)?.c || 0;
 
   return { newCards, learningCards, reviewCards };
 };
 
-export const getDueCards = (newLimit: number = 20, reviewLimit: number = 50, deckId?: string): VocabItem[] => {
-  const now = new Date().getTime();
-  
-  const baseCondition = deckId ? `AND n.deck_id = '${deckId}'` : '';
-  
-  // 1. Fetch Review / Learning cards (state > 0)
-  const reviewResult = db.executeSync(
-    `SELECT c.*, n.kanji, n.english 
-     FROM cards c
-     JOIN notes n ON c.note_id = n.id
-     WHERE c.state > 0 AND c.due <= ? ${baseCondition}
-     ORDER BY c.due ASC
-     LIMIT ?`,
-    [now, reviewLimit]
-  );
-  
-  const reviewRows = reviewResult.rows || [];
-  
-  // 2. Fetch New cards (state = 0)
-  const newResult = db.executeSync(
-    `SELECT c.*, n.kanji, n.english 
-     FROM cards c
-     JOIN notes n ON c.note_id = n.id
-     WHERE c.state = 0 ${baseCondition}
-     ORDER BY c.due ASC
-     LIMIT ?`,
-    [newLimit]
-  );
-  
-  const newRows = newResult.rows || [];
-  
-  // 3. Combine them: Reviews first, then New cards
-  const combinedRows = [...reviewRows, ...newRows];
+const CARD_SELECT = `
+  SELECT c.*, v.expression, v.reading, v.furigana, v.gloss, v.pos, v.pitch, v.jlpt
+  FROM cards c
+  JOIN ${C}.vocab v ON c.vocab_id = v.id`;
 
-  return combinedRows.map((row: any) => ({
-    id: row.note_id,
-    kanji: JSON.parse(row.kanji),
-    english: row.english,
-    fsrsCard: {
-      due: new Date(row.due),
-      stability: row.stability,
-      difficulty: row.difficulty,
-      elapsed_days: row.elapsed_days,
-      scheduled_days: row.scheduled_days,
-      reps: row.reps,
-      lapses: row.lapses,
-      state: row.state,
-      last_review: row.last_review ? new Date(row.last_review) : undefined,
-    } as Card
-  }));
+export const getDueCards = (newLimit: number = 20, reviewLimit: number = 50, deckId?: string): VocabItem[] => {
+  const now = Date.now();
+  const deckClause = deckId ? 'AND c.deck_id = ?' : '';
+
+  // 1. 複習/學習中卡（state > 0 且到期）
+  const reviewRows = (db.executeSync(
+    `${CARD_SELECT} WHERE c.state > 0 AND c.due <= ? ${deckClause} ORDER BY c.due ASC LIMIT ?`,
+    deckId ? [now, deckId, reviewLimit] : [now, reviewLimit],
+  ).rows ?? []) as any[];
+
+  // 2. 新卡（state = 0）
+  const newRows = (db.executeSync(
+    `${CARD_SELECT} WHERE c.state = 0 ${deckClause} ORDER BY c.due ASC LIMIT ?`,
+    deckId ? [deckId, newLimit] : [newLimit],
+  ).rows ?? []) as any[];
+
+  return [...reviewRows, ...newRows].map(toVocabItem);
 };
 
-export const updateCardState = (noteId: string, fsrsCard: Card) => {
+export const updateCardState = (vocabId: string, fsrsCard: Card, rating: number) => {
   db.executeSync(
     `UPDATE cards SET
-      due = ?,
-      stability = ?,
-      difficulty = ?,
-      elapsed_days = ?,
-      scheduled_days = ?,
-      reps = ?,
-      lapses = ?,
-      state = ?,
-      last_review = ?
-     WHERE note_id = ?`,
+      due = ?, stability = ?, difficulty = ?, elapsed_days = ?, scheduled_days = ?,
+      reps = ?, lapses = ?, state = ?, last_review = ?
+     WHERE vocab_id = ?`,
     [
       fsrsCard.due.getTime(),
       fsrsCard.stability,
@@ -98,7 +122,24 @@ export const updateCardState = (noteId: string, fsrsCard: Card) => {
       fsrsCard.lapses,
       fsrsCard.state,
       fsrsCard.last_review ? fsrsCard.last_review.getTime() : null,
-      noteId
-    ]
+      vocabId,
+    ],
+  );
+
+  // 記錄複習 log（FSRS 個人化訓練原料）。
+  db.executeSync(
+    `INSERT INTO revlog (card_id, rating, state, due, stability, difficulty, elapsed_days, scheduled_days, review_time)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      `card-${vocabId}`,
+      rating,
+      fsrsCard.state,
+      fsrsCard.due.getTime(),
+      fsrsCard.stability,
+      fsrsCard.difficulty,
+      fsrsCard.elapsed_days,
+      fsrsCard.scheduled_days,
+      Date.now(),
+    ],
   );
 };
