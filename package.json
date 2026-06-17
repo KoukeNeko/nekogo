@@ -16,6 +16,7 @@
     "expo-linear-gradient": "~56.0.4",
     "expo-linking": "~56.0.14",
     "expo-router": "~56.2.11",
+    "expo-speech": "~56.0.3",
     "expo-splash-screen": "~56.0.10",
     "expo-status-bar": "~56.0.4",
     "expo-symbols": "~56.0.6",
@@ -36,6 +37,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "kuromoji": "^0.1.2",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -52,7 +54,15 @@
     "kanji:build": "node scripts/etl/build-kanji-data.mjs",
     "kanji:verify": "node scripts/verify-kanji-data.mjs",
     "kanji": "npm run kanji:download && npm run kanji:build && npm run kanji:verify",
-    "data": "npm run seed && npm run kanji"
+    "extra:download": "node scripts/etl/download-vocab-extra-sources.mjs",
+    "extra:build": "node scripts/etl/build-vocab-extra.mjs",
+    "extra:verify": "node scripts/verify-vocab-extra.mjs",
+    "extra": "npm run extra:download && npm run extra:build && npm run extra:verify",
+    "content:download": "npm run seed:download && npm run kanji:download && npm run extra:download && node scripts/etl/download-jmdict-common.mjs",
+    "content:build": "node scripts/etl/build-content-db.mjs",
+    "content:verify": "node scripts/verify-content-db.mjs",
+    "content": "npm run content:download && npm run content:build && npm run content:verify",
+    "data": "npm run seed && npm run kanji && npm run extra"
   },
   "private": true
 }
