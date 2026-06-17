@@ -103,7 +103,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#2E3135',
     overflow: 'hidden',
-    marginBottom: Spacing.three,
   },
   divider: {
     height: 1,
