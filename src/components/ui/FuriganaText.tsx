@@ -32,7 +32,8 @@ export const FuriganaText: React.FC<FuriganaTextProps> = ({
                                 fontSize: rubySize, 
                                 color: color,
                                 // If no reading, we keep the space to maintain baseline alignment
-                                opacity: chunk.rt ? 1 : 0 
+                                opacity: chunk.rt ? 1 : 0,
+                                marginBottom: -(fontSize * 0.15) // Use negative margin to pull it closer to the kanji
                             }
                         ]}
                         allowFontScaling={false}
@@ -71,7 +72,6 @@ const styles = StyleSheet.create({
     rt: {
         fontFamily: Fonts?.sans,
         textAlign: 'center',
-        marginBottom: 2, // Space between furigana and kanji
     },
     ruby: {
         fontFamily: Fonts?.sans,
