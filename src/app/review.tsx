@@ -9,6 +9,7 @@ import { RatingButtons } from "../components/ui/RatingButtons";
 import { AppBar } from "../components/ui/AppBar";
 import { Rating } from "ts-fsrs";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { PenTool } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { useReviewSession } from "../hooks/useReviewSession";
 
@@ -99,9 +100,10 @@ export default function Review() {
         </View>
 
         <View style={styles.pitchRightArea}>
-          <View style={styles.pitchPill}>
-            <Text style={styles.pitchPillText}>[2] 中高</Text>
-          </View>
+          <TouchableOpacity style={styles.pitchPill} onPress={() => router.push('/stroke-order')}>
+            <PenTool size={14} color={Colors.dark.pitchLine} style={{ marginRight: 4 }} />
+            <Text style={styles.pitchPillText}>筆順</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.speakerButtonSmall}>
             <Volume2 size={20} color={Colors.dark.pitchLine} />
           </TouchableOpacity>
@@ -340,6 +342,8 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
   },
   pitchPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#1E2B38', // Slight blue tint matching the stroke
     paddingHorizontal: Spacing.three,
     paddingVertical: 6,

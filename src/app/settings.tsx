@@ -6,6 +6,7 @@ import { Colors, Spacing, BORDER_RADIUS, Fonts } from "../constants/theme";
 import { ChevronLeft } from "lucide-react-native";
 import { AppBar } from "../components/ui/AppBar";
 import { SettingsCard, SettingsRow, SettingsDivider, SettingsSwitchRow } from "../components/ui/SettingsCard";
+import { useSettings, StrokeSpeed } from "../context/SettingsContext";
 
 const DummySlider = ({ width = 100, fillPercent = 80, color = Colors.dark.primaryOrange }) => {
   return (
@@ -42,6 +43,25 @@ export default function SettingsScreen() {
   const [pitchAccent, setPitchAccent] = useState<'上線' | '数字'>('上線');
   const [displayFont, setDisplayFont] = useState<'明朝' | 'ゴシック'>('明朝');
   const [themeMode, setThemeMode] = useState<'システム' | 'ライト' | 'ダーク'>('ダーク');
+
+  const { strokeSpeed, setStrokeSpeed } = useSettings();
+
+  const getSpeedLabel = (speed: StrokeSpeed) => {
+    switch(speed) {
+      case StrokeSpeed.Slow: return '遅い';
+      case StrokeSpeed.Normal: return '標準';
+      case StrokeSpeed.Fast: return '速い';
+    }
+  };
+
+  const getSpeedValueFromLabel = (label: string): StrokeSpeed => {
+    switch(label) {
+      case '遅い': return StrokeSpeed.Slow;
+      case '標準': return StrokeSpeed.Normal;
+      case '速い': return StrokeSpeed.Fast;
+      default: return StrokeSpeed.Normal;
+    }
+  };
 
   const renderSegment = (options: string[], active: string, onChange: (val: any) => void, activeBg = '#202636') => (
     <View style={styles.segmentControl}>
@@ -129,6 +149,10 @@ export default function SettingsScreen() {
           <SettingsDivider />
           <SettingsRow label="表示フォント">
             {renderSegment(['明朝', 'ゴシック'], displayFont, setDisplayFont)}
+          </SettingsRow>
+          <SettingsDivider />
+          <SettingsRow label="筆順アニメ速度">
+            {renderSegment(['遅い', '標準', '速い'], getSpeedLabel(strokeSpeed), (val) => setStrokeSpeed(getSpeedValueFromLabel(val)))}
           </SettingsRow>
           <SettingsDivider />
           <View style={[styles.row, { flexDirection: 'column', alignItems: 'flex-start', gap: 12 }]}>
