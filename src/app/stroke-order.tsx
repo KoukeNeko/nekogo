@@ -176,11 +176,10 @@ export default function StrokeOrder() {
                                     en: w.gloss.split(';')[0],
                                     furigana: w.furigana
                                 }} 
-                                style={{ marginBottom: Spacing.three }} 
                             />
                         ))}
                         {tab === 'sentences' && examples.map((e, idx) => (
-                            <ExampleSentenceCard key={`ex-${idx}`} example={e} style={{ marginBottom: Spacing.three }} />
+                            <ExampleSentenceCard key={`ex-${idx}`} example={e} />
                         ))}
                     </View>
                 </View>
