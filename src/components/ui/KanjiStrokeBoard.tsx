@@ -22,13 +22,15 @@ interface KanjiStrokeBoardProps {
     activeStroke?: number; 
     // Optional explicit size. Defaults to full width minus padding if not provided.
     size?: number;
+    // Hide crosshairs if false (defaults to true)
+    showGuidelines?: boolean;
 }
 
 const PATH_LENGTH = 1000;
 const { width } = Dimensions.get('window');
 const DEFAULT_BOARD_SIZE = width - 64;
 
-export const KanjiStrokeBoard: React.FC<KanjiStrokeBoardProps> = ({ paths, trigger, activeStroke = 0, size }) => {
+export const KanjiStrokeBoard: React.FC<KanjiStrokeBoardProps> = ({ paths, trigger, activeStroke = 0, size, showGuidelines = true }) => {
     
     const { strokeSpeed } = useSettings();
 
@@ -75,8 +77,12 @@ export const KanjiStrokeBoard: React.FC<KanjiStrokeBoardProps> = ({ paths, trigg
         <View style={[styles.board, { width: actualSize, height: actualSize, padding }]}>
             <Svg viewBox="0 0 109 109" style={styles.svg}>
                 {/* Crosshairs */}
-                <Line x1="54.5" y1="0" x2="54.5" y2="109" stroke="#2E3135" strokeWidth="2" strokeDasharray="4 4" />
-                <Line x1="0" y1="54.5" x2="109" y2="54.5" stroke="#2E3135" strokeWidth="2" strokeDasharray="4 4" />
+                {showGuidelines && (
+                    <>
+                        <Line x1="54.5" y1="0" x2="54.5" y2="109" stroke="#2E3135" strokeWidth="2" strokeDasharray="4 4" />
+                        <Line x1="0" y1="54.5" x2="109" y2="54.5" stroke="#2E3135" strokeWidth="2" strokeDasharray="4 4" />
+                    </>
+                )}
 
                 {/* Base strokes (background ghost) */}
                 {paths.map((d, index) => (

@@ -143,3 +143,43 @@ export const updateCardState = (vocabId: string, fsrsCard: Card, rating: number)
     ],
   );
 };
+
+// 今天複習過的不重複卡片數（用於首頁進度環）。
+export const getReviewedTodayCount = (): number => {
+  const row = db.executeSync(
+    `SELECT COUNT(DISTINCT card_id) AS c FROM revlog
+     WHERE date(review_time / 1000, 'unixepoch', 'localtime') = date('now', 'localtime')`,
+  ).rows[0] as any;
+  return row?.c || 0;
+};
+
+const localDayString = (date: Date): string => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
+// 連續複習天數：從今天（或昨天）往回數有複習紀錄的連續日。
+export const getStreak = (): number => {
+  const rows = (db.executeSync(
+    `SELECT DISTINCT date(review_time / 1000, 'unixepoch', 'localtime') AS d FROM revlog ORDER BY d DESC`,
+  ).rows ?? []) as any[];
+  const days = new Set(rows.map((r) => r.d as string));
+  if (days.size === 0) return 0;
+
+  const today = new Date();
+  const cursor = new Date(today);
+  // 今天還沒複習但昨天有 → 連續仍成立，從昨天起算。
+  if (!days.has(localDayString(today))) {
+    cursor.setDate(cursor.getDate() - 1);
+    if (!days.has(localDayString(cursor))) return 0;
+  }
+
+  let streak = 0;
+  while (days.has(localDayString(cursor))) {
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return streak;
+};

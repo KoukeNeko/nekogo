@@ -6,16 +6,17 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Speech from "expo-speech";
 import { Colors, Spacing, Fonts, BORDER_RADIUS } from "../constants/theme";
 import { FuriganaText } from "../components/ui/FuriganaText";
-import { FlashCard } from "../components/ui/FlashCard";
-import { RatingButtons } from "../components/ui/RatingButtons";
-import { AppBar } from "../components/ui/AppBar";
+import { FlashCard } from '../components/ui/FlashCard';
+import { RatingButtons } from '../components/ui/RatingButtons';
+import { KanjiStrokeBoard } from '../components/ui/KanjiStrokeBoard';
+import { ExampleSentenceCard } from '../components/ui/ExampleSentenceCard';
+import { AppBar } from '../components/ui/AppBar';
 import { Rating } from "ts-fsrs";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { PenTool } from "lucide-react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useReviewSession } from "../hooks/useReviewSession";
 import { ActivityIndicator } from "react-native";
-import { KanjiStrokeBoard } from "../components/ui/KanjiStrokeBoard";
 import { PitchAccent } from "../components/ui/PitchAccent";
 
 interface FuriganaSegment {
@@ -156,17 +157,7 @@ export default function Review() {
       {example && (
         <View style={styles.sectionArea}>
           <Text style={styles.sectionTitle}>例文</Text>
-          <View style={styles.sentenceContainer}>
-            <View style={styles.sentenceTopRow}>
-              <View style={styles.sentenceTextWrap}>
-                <FuriganaText chunks={example.furigana} fontSize={20} align="flex-start" />
-              </View>
-              <TouchableOpacity style={{ padding: 4 }} onPress={() => speakJapanese(example.jp)}>
-                <Volume2 size={20} color={Colors.dark.pitchLine} />
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.sentenceEnglish}>{example.en}</Text>
-          </View>
+          <ExampleSentenceCard example={example} />
         </View>
       )}
 
@@ -182,7 +173,12 @@ export default function Review() {
             const meaningStr = entry.meanings.slice(0, 3).join(', ');
 
             return (
-              <View key={k} style={styles.kanjiRow}>
+              <TouchableOpacity 
+                key={k} 
+                style={styles.kanjiRow}
+                activeOpacity={0.7}
+                onPress={() => router.push(`/stroke-order?kanji=${k}`)}
+              >
                 <TouchableOpacity onPress={() => handleKanjiReplay(k)} style={styles.kanjiBoardWrapper}>
                   <KanjiStrokeBoard paths={paths} trigger={trigger} size={84} />
                 </TouchableOpacity>
@@ -198,7 +194,7 @@ export default function Review() {
                   <Text style={styles.kanjiReadingText} numberOfLines={1}>{readingStr}</Text>
                   <Text style={styles.kanjiMeaningText} numberOfLines={2}>{meaningStr}</Text>
                 </View>
-              </View>
+              </TouchableOpacity>
             );
           })}
         </View>
@@ -457,37 +453,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.textSecondary,
     fontSize: 14,
   },
-  sentenceContainer: {
-    padding: Spacing.three,
-    backgroundColor: '#16171B', // slightly darker than card
-    borderRadius: BORDER_RADIUS.lg,
-    width: '100%',
-    borderWidth: 1,
-    borderColor: '#2E3135',
-  },
-  sentenceTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: Spacing.two,
-  },
-  sentenceTextWrap: {
-    flex: 1,
-    marginRight: Spacing.two,
-  },
-  sentenceRuby: {
-    color: Colors.dark.textSecondary,
-    fontSize: 10,
-  },
-  sentenceJapanese: {
-    color: Colors.dark.text,
-    fontSize: 20,
-    fontWeight: '500',
-  },
-  sentenceEnglish: {
-    color: Colors.dark.textSecondary,
-    fontSize: 14,
-  },
+
   cardBackFooter: {
     marginTop: Spacing.six,
     alignItems: 'center',

@@ -1,12 +1,18 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ChevronLeft, RotateCw } from 'lucide-react-native';
+import { ChevronLeft, Volume2, PenTool, EyeOff, Eye } from 'lucide-react-native';
+import * as Speech from 'expo-speech';
 import { Colors, Spacing, Fonts, BORDER_RADIUS } from '../constants/theme';
 import { AppBar } from '../components/ui/AppBar';
 import { KanjiStrokeBoard } from '../components/ui/KanjiStrokeBoard';
 import kanjiData from '../data/kanjiData.json';
+import { getKanjiWords, getKanjiExamples, RelatedWord, RelatedExample } from '../db/repositories/kanjiRepository';
+import { FuriganaText } from '../components/ui/FuriganaText';
+import { ExampleSentenceCard } from '../components/ui/ExampleSentenceCard';
+
+const { width } = Dimensions.get('window');
 
 const DEFAULT_KANJI = '木';
 
@@ -23,117 +29,162 @@ interface KanjiEntry {
 
 const KANJI_BY_CHAR = kanjiData.kanji as Record<string, KanjiEntry>;
 
-// 讀音行：訓讀在前、音讀在後，以「•」分隔（如「き、こ-  •  ボク、モク」）。
-const formatReading = (entry: KanjiEntry): string =>
-    [entry.kun.join('、'), entry.on.join('、')].filter(Boolean).join('  •  ');
-
-// 字義行：英文字義 + 筆畫數（如「tree, wood  •  4画」）。
-const formatMeaning = (entry: KanjiEntry, strokeCount: number): string =>
-    [entry.meanings.slice(0, 2).join(', '), `${entry.strokeCount ?? strokeCount}画`]
-        .filter(Boolean)
-        .join('  •  ');
+const speakJapanese = (text: string) => {
+    Speech.speak(text, { language: 'ja-JP', rate: 0.9 });
+};
 
 export default function StrokeOrder() {
     const router = useRouter();
     const { kanji: kanjiParam } = useLocalSearchParams<{ kanji?: string }>();
 
-    // 路由參數可為整個詞；取第一個漢字，預設顯示「木」。
-    const kanjiChar =
-        typeof kanjiParam === 'string' && kanjiParam.length > 0 ? [...kanjiParam][0] : DEFAULT_KANJI;
+    const kanjiChar = typeof kanjiParam === 'string' && kanjiParam.length > 0 ? [...kanjiParam][0] : DEFAULT_KANJI;
     const entry = KANJI_BY_CHAR[kanjiChar] ?? KANJI_BY_CHAR[DEFAULT_KANJI];
     const paths = entry?.strokes ?? [];
 
     const [trigger, setTrigger] = useState(0);
-    const [activeStroke, setActiveStroke] = useState(0);
+    const [showGuidelines, setShowGuidelines] = useState(true);
+    const [tab, setTab] = useState<'words' | 'sentences'>('words');
+
+    const [words, setWords] = useState<RelatedWord[]>([]);
+    const [examples, setExamples] = useState<RelatedExample[]>([]);
+
+    useEffect(() => {
+        setWords(getKanjiWords(kanjiChar, 10));
+        setExamples(getKanjiExamples(kanjiChar, 10));
+    }, [kanjiChar]);
 
     const handleReplay = () => {
-        setActiveStroke(0);
         setTrigger(prev => prev + 1);
-    };
-
-    const handleSelectStroke = (index: number) => {
-        if (activeStroke === index) {
-            // Deselect and replay all
-            handleReplay();
-        } else {
-            setActiveStroke(index);
-        }
     };
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
-            <AppBar 
+            {/* Header */}
+            <AppBar
                 leftContent={
-                    <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
-                        <ChevronLeft size={28} color={Colors.dark.text} />
+                    <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+                        <ChevronLeft size={24} color={Colors.dark.textSecondary} />
                     </TouchableOpacity>
                 }
                 centerContent={
-                    <Text style={styles.headerTitle}>筆順</Text>
+                    <Text style={styles.headerTitle}>{kanjiChar}</Text>
                 }
                 rightContent={
-                    <Text style={styles.headerRight}>KanjiVG</Text>
+                    <View style={{ width: 40 }} />
                 }
             />
 
-            <View style={styles.content}>
-                
-                {/* Info Text */}
-                <View style={styles.infoArea}>
-                    <Text style={styles.kanjiChar}>{kanjiChar}</Text>
-                    <Text style={styles.readingText}>{formatReading(entry)}</Text>
-                    <Text style={styles.meaningText}>{formatMeaning(entry, paths.length)}</Text>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+
+                {/* Animated Board & Controls */}
+                <View style={styles.boardArea}>
+                    <View style={styles.boardWrapper}>
+                        <KanjiStrokeBoard
+                            paths={paths}
+                            trigger={trigger}
+                            activeStroke={0}
+                            showGuidelines={showGuidelines}
+                        />
+                        <TouchableOpacity style={styles.replayBtn} onPress={handleReplay}>
+                            <PenTool size={18} color={Colors.dark.primaryOrange} />
+                        </TouchableOpacity>
+                    </View>
                 </View>
 
-                {/* Animated Board */}
-                <KanjiStrokeBoard
-                    paths={paths}
-                    trigger={trigger}
-                    activeStroke={activeStroke}
-                />
+                {/* 4 Info Cards */}
+                <View style={styles.infoRow}>
+                    <View style={styles.infoBox}>
+                        <Text style={styles.infoBoxLabel} numberOfLines={1} adjustsFontSizeToFit>JLPT</Text>
+                        {entry.jlpt ? <Text style={styles.infoBoxValueBadge}>N{entry.jlpt}</Text> : <Text style={styles.infoBoxValue}>-</Text>}
+                    </View>
+                    <View style={styles.infoBoxBorder} />
+                    <View style={styles.infoBox}>
+                        <Text style={styles.infoBoxLabel} numberOfLines={1} adjustsFontSizeToFit>WANIKANI</Text>
+                        <Text style={styles.infoBoxValue} numberOfLines={1} adjustsFontSizeToFit>{entry.grade ? `Lv ${entry.grade}` : '-'}</Text>
+                    </View>
+                    <View style={styles.infoBoxBorder} />
+                    <View style={styles.infoBox}>
+                        <Text style={styles.infoBoxLabel} numberOfLines={1} adjustsFontSizeToFit>頻度</Text>
+                        <Text style={styles.infoBoxValue} numberOfLines={1} adjustsFontSizeToFit>{entry.frequency || '-'} <Text style={{ color: Colors.dark.pitchBlue }}>○</Text></Text>
+                    </View>
+                    <View style={styles.infoBoxBorder} />
+                    <View style={styles.infoBox}>
+                        <Text style={styles.infoBoxLabel} numberOfLines={1} adjustsFontSizeToFit>画数</Text>
+                        <Text style={styles.infoBoxValue} numberOfLines={1} adjustsFontSizeToFit>{entry.strokeCount || paths.length} <Text style={{ color: Colors.dark.primaryOrange }}>🪶</Text></Text>
+                    </View>
+                </View>
 
-                {/* Controls */}
-                <View style={styles.controlsArea}>
-                    
-                    {/* Stroke Numbers */}
-                    <View style={styles.strokeNumbersRow}>
-                        {paths.map((_, index) => {
-                            const strokeNum = index + 1;
-                            const isActive = activeStroke === strokeNum;
-                            return (
-                                <TouchableOpacity 
-                                    key={strokeNum} 
-                                    style={[
-                                        styles.strokeBtn, 
-                                        isActive && styles.strokeBtnActive
-                                    ]}
-                                    onPress={() => handleSelectStroke(strokeNum)}
-                                >
-                                    <Text style={[
-                                        styles.strokeBtnText,
-                                        isActive && styles.strokeBtnTextActive
-                                    ]}>
-                                        {strokeNum}
-                                    </Text>
+                {/* Meanings */}
+                {entry.meanings && entry.meanings.length > 0 && (
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>意味 ・ MEANINGS</Text>
+                        <Text style={styles.meaningsText}>{entry.meanings.join(', ')}</Text>
+                    </View>
+                )}
+
+                {/* On'yomi */}
+                {entry.on.length > 0 && (
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>音読み ・ ON'YOMI</Text>
+                        <View style={styles.readingRow}>
+                            {entry.on.map((reading, idx) => (
+                                <TouchableOpacity key={`on-${idx}`} style={styles.readingChip} onPress={() => speakJapanese(reading)}>
+                                    <Text style={styles.readingText}>{reading}</Text>
+                                    <Volume2 size={16} color={Colors.dark.pitchBlue} style={{ marginLeft: 6 }} />
                                 </TouchableOpacity>
-                            );
-                        })}
+                            ))}
+                        </View>
+                    </View>
+                )}
+
+                {/* Kun'yomi */}
+                {entry.kun.length > 0 && (
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>訓読み ・ KUN'YOMI</Text>
+                        <View style={styles.readingRow}>
+                            {entry.kun.map((reading, idx) => {
+                                const cleanReading = reading.replace('.', '');
+                                return (
+                                    <TouchableOpacity key={`kun-${idx}`} style={styles.readingChip} onPress={() => speakJapanese(cleanReading)}>
+                                        <Text style={styles.readingText}>{reading}</Text>
+                                        <Volume2 size={16} color={Colors.dark.pitchBlue} style={{ marginLeft: 6 }} />
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+                    </View>
+                )}
+
+                {/* Examples */}
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>例 ・ EXAMPLES</Text>
+                    <View style={styles.tabContainer}>
+                        <TouchableOpacity style={[styles.tabBtn, tab === 'words' && styles.tabBtnActive]} onPress={() => setTab('words')}>
+                            <Text style={[styles.tabBtnText, tab === 'words' && styles.tabBtnTextActive]}>Words</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[styles.tabBtn, tab === 'sentences' && styles.tabBtnActive]} onPress={() => setTab('sentences')}>
+                            <Text style={[styles.tabBtnText, tab === 'sentences' && styles.tabBtnTextActive]}>Sentences</Text>
+                        </TouchableOpacity>
                     </View>
 
-                    {/* Replay Button */}
-                    <TouchableOpacity style={styles.replayButton} onPress={handleReplay}>
-                        <RotateCw size={18} color={Colors.dark.primaryOrange} />
-                        <Text style={styles.replayButtonText}>もう一度</Text>
-                    </TouchableOpacity>
-
+                    <View style={styles.listContainer}>
+                        {tab === 'words' && words.map((w, idx) => (
+                            <View key={`word-${idx}`} style={styles.listItem}>
+                                <TouchableOpacity style={styles.listItemSpeaker} onPress={() => speakJapanese(w.reading)}>
+                                    <Volume2 size={18} color={Colors.dark.pitchBlue} />
+                                </TouchableOpacity>
+                                <FuriganaText chunks={w.furigana} fontSize={24} align="flex-start" />
+                                <Text style={styles.listItemGloss}>{w.gloss.split(';')[0]}</Text>
+                            </View>
+                        ))}
+                        {tab === 'sentences' && examples.map((e, idx) => (
+                            <ExampleSentenceCard key={`ex-${idx}`} example={e} style={{ marginBottom: Spacing.three }} />
+                        ))}
+                    </View>
                 </View>
 
-                {/* Footer */}
-                <View style={styles.footer}>
-                    <Text style={styles.footerText}>KanjiVG  •  CC BY-SA 3.0</Text>
-                </View>
-
-            </View>
+                <View style={{ height: 60 }} />
+            </ScrollView>
         </SafeAreaView>
     );
 }
@@ -143,104 +194,177 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: Colors.dark.background,
     },
-    iconButton: {
-        padding: Spacing.two,
-        marginLeft: -Spacing.two,
+    backBtn: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#1C1D22',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     headerTitle: {
         color: Colors.dark.text,
         fontSize: 18,
+        fontFamily: Fonts?.serif,
+    },
+    scrollContent: {
+        paddingHorizontal: Spacing.four,
+        paddingTop: Spacing.two,
+    },
+    boardArea: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: Spacing.four,
+        marginTop: Spacing.two,
+        position: 'relative',
+    },
+    boardWrapper: {
+        width: width * 0.8,
+        height: width * 0.8,
+        position: 'relative',
+    },
+    replayBtn: {
+        position: 'absolute',
+        bottom: 1, // 之後處理
+        right: 8,
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    infoRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingVertical: Spacing.four,
+        marginBottom: Spacing.four,
+    },
+    infoBox: {
+        width: '24%',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: Spacing.two,
+        overflow: 'hidden',
+    },
+    infoBoxBorder: {
+        width: 1,
+        backgroundColor: 'transparent',
+        borderLeftWidth: 1,
+        borderColor: '#2E3135',
+        borderStyle: 'dashed',
+    },
+    infoBoxLabel: {
+        color: '#555861',
+        fontSize: 10,
+        letterSpacing: 1,
+        fontWeight: 'bold',
+        fontFamily: Fonts?.sans,
+        width: '100%',
+        textAlign: 'center',
+    },
+    infoBoxValue: {
+        color: Colors.dark.text,
+        fontSize: 16,
+        fontWeight: '600',
+        fontFamily: Fonts?.sans,
+        width: '100%',
+        textAlign: 'center',
+    },
+    infoBoxValueBadge: {
+        backgroundColor: '#1E2D3D',
+        color: Colors.dark.pitchBlue,
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 4,
+        fontSize: 14,
+        fontWeight: 'bold',
+        overflow: 'hidden',
+    },
+    section: {
+        marginBottom: Spacing.four,
+    },
+    sectionTitle: {
+        color: '#555861',
+        fontSize: 12,
+        letterSpacing: 2,
+        marginBottom: Spacing.two,
         fontWeight: 'bold',
         fontFamily: Fonts?.sans,
     },
-    headerRight: {
-        color: Colors.dark.textSecondary,
-        fontSize: 14,
-        fontFamily: Fonts?.mono,
-    },
-    content: {
-        flex: 1,
-        paddingTop: Spacing.four,
-    },
-    infoArea: {
-        alignItems: 'center',
-        marginBottom: Spacing.six,
-        gap: Spacing.two,
-    },
-    kanjiChar: {
+    meaningsText: {
         color: Colors.dark.text,
-        fontSize: 40,
-        fontWeight: 'bold',
+        fontSize: 22,
         fontFamily: Fonts?.serif,
+        lineHeight: 32,
+    },
+    readingRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: Spacing.three,
+    },
+    readingChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#2E3135',
+        borderRadius: 20,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        backgroundColor: '#121316',
     },
     readingText: {
-        color: Colors.dark.textSecondary,
-        fontSize: 16,
-        letterSpacing: 2,
-    },
-    meaningText: {
-        color: Colors.dark.textSecondary,
-        fontSize: 14,
-        letterSpacing: 1,
-    },
-    controlsArea: {
-        alignItems: 'center',
-        marginTop: Spacing.six,
-        gap: Spacing.five,
-    },
-    strokeNumbersRow: {
-        flexDirection: 'row',
-        gap: Spacing.three,
-        flexWrap: 'wrap',
-        justifyContent: 'center',
-    },
-    strokeBtn: {
-        width: 44,
-        height: 44,
-        borderRadius: BORDER_RADIUS.sm,
-        borderWidth: 1,
-        borderColor: '#2E3135',
-        backgroundColor: '#121316',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    strokeBtnActive: {
-        borderColor: Colors.dark.primaryOrange,
-        backgroundColor: '#1C1D22',
-    },
-    strokeBtnText: {
-        color: Colors.dark.primaryOrange,
-        fontSize: 16,
-        fontFamily: Fonts?.mono,
-    },
-    strokeBtnTextActive: {
-        fontWeight: 'bold',
-    },
-    replayButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Spacing.two,
-        paddingHorizontal: Spacing.five,
-        paddingVertical: 14,
-        borderRadius: BORDER_RADIUS.md,
-        borderWidth: 1,
-        borderColor: '#2E3135',
-        backgroundColor: '#121316',
-    },
-    replayButtonText: {
         color: Colors.dark.text,
         fontSize: 16,
-        fontWeight: 'bold',
+        fontFamily: Fonts?.sans,
     },
-    footer: {
-        marginTop: 'auto',
-        marginBottom: Spacing.six,
+    tabContainer: {
+        flexDirection: 'row',
+        backgroundColor: '#1C1D22',
+        borderRadius: BORDER_RADIUS.md,
+        padding: 4,
+        marginBottom: Spacing.four,
+    },
+    tabBtn: {
+        flex: 1,
+        paddingVertical: 12,
         alignItems: 'center',
+        borderRadius: BORDER_RADIUS.md - 2,
     },
-    footerText: {
-        color: '#4F525A', // subtle gray
-        fontSize: 11,
-        letterSpacing: 1,
-        fontFamily: Fonts?.mono,
+    tabBtnActive: {
+        backgroundColor: '#2E3135',
+    },
+    tabBtnText: {
+        color: Colors.dark.textSecondary,
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    tabBtnTextActive: {
+        color: Colors.dark.text,
+    },
+    listContainer: {
+        gap: Spacing.three,
+    },
+    listItem: {
+        borderWidth: 1,
+        borderColor: '#2E3135',
+        borderRadius: BORDER_RADIUS.md,
+        padding: Spacing.four,
+        backgroundColor: '#121316',
+        position: 'relative',
+    },
+    listItemSpeaker: {
+        position: 'absolute',
+        top: Spacing.four,
+        right: Spacing.four,
+        zIndex: 1,
+        padding: Spacing.two,
+    },
+    listItemGloss: {
+        color: Colors.dark.textSecondary,
+        fontSize: 14,
+        marginTop: Spacing.three,
+        lineHeight: 20,
     }
 });

@@ -1,41 +1,30 @@
-import React from "react";
+import React, { useState, useCallback } from "react";
 import { View, Text, StyleSheet, ScrollView } from "react-native";
+import { useFocusEffect } from "expo-router";
 import { Colors, Spacing, BORDER_RADIUS, Fonts } from "../../constants/theme";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Settings, User, Flame } from "lucide-react-native";
 import { AppBar } from "../../components/ui/AppBar";
-import { TouchableOpacity } from "react-native";
+import { getStats, Stats as StatsData } from "../../db/repositories/statsRepository";
 
 export default function Stats() {
-  
-  // Mock data for bar chart
-  const barChartData = [
-    { label: '月', value: 30 },
-    { label: '火', value: 65 },
-    { label: '水', value: 45 },
-    { label: '木', value: 85 },
-    { label: '金', value: 40 },
-    { label: '土', value: 20 },
-    { label: '日', value: 55 },
-  ];
-  const maxBarValue = Math.max(...barChartData.map(d => d.value));
+  const [stats, setStats] = useState<StatsData | null>(null);
 
-  // Mock data for contribution grid (7 rows, 12 cols)
-  // 0: empty, 1: light, 2: medium, 3: dark
-  const generateGrid = () => {
-    const grid = [];
-    for (let r = 0; r < 7; r++) {
-      const row = [];
-      for (let c = 0; c < 12; c++) {
-        // Randomize some green intensity
-        row.push(Math.floor(Math.random() * 4));
+  useFocusEffect(
+    useCallback(() => {
+      try {
+        setStats(getStats());
+      } catch (e) {
+        console.error('Failed to load stats', e);
       }
-      grid.push(row);
-    }
-    return grid;
-  };
-  const contributionGrid = generateGrid();
-  
+    }, [])
+  );
+
+  const barChartData = stats?.next7 ?? [];
+  const maxBarValue = Math.max(1, ...barChartData.map(d => d.count));
+  const contributionGrid = stats?.grid ?? Array.from({ length: 7 }, () => new Array(12).fill(0));
+  const mat = stats?.maturity ?? { newC: 0, learnC: 0, youngC: 0, matureC: 0 };
+  const retentionText = stats?.retention != null ? `${Math.round(stats.retention * 100)}%` : '—';
+
   const getGridColor = (level: number) => {
     switch (level) {
       case 1: return '#2E6E45'; // Dark green
@@ -57,16 +46,16 @@ export default function Stats() {
         {/* Top Summary Cards */}
         <View style={styles.summaryRow}>
           <View style={styles.summaryCard}>
-            <Text style={[styles.summaryValue, { color: Colors.dark.primaryOrange }]}>12</Text>
+            <Text style={[styles.summaryValue, { color: Colors.dark.primaryOrange }]}>{stats?.streak ?? 0}</Text>
             <Text style={styles.summaryLabel}>連続日数</Text>
           </View>
           <View style={styles.summaryCard}>
-            <Text style={styles.summaryValue}>142</Text>
+            <Text style={styles.summaryValue}>{stats?.reviewsToday ?? 0}</Text>
             <Text style={styles.summaryLabel}>本日の復習</Text>
           </View>
           <View style={styles.summaryCard}>
-            <Text style={[styles.summaryValue, { color: '#66D283' }]}>91%</Text>
-            <Text style={styles.summaryLabel}>真の定着率</Text>
+            <Text style={[styles.summaryValue, { color: '#66D283' }]}>{retentionText}</Text>
+            <Text style={styles.summaryLabel}>定着率</Text>
           </View>
         </View>
 
@@ -74,15 +63,15 @@ export default function Stats() {
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>今後7日の予定</Text>
-            <Text style={styles.sectionSubtitle}>286 枚</Text>
+            <Text style={styles.sectionSubtitle}>{stats?.next7Total ?? 0} 枚</Text>
           </View>
           
           <View style={styles.barChartContainer}>
             {barChartData.map((item, index) => (
               <View key={index} style={styles.barColumn}>
                 <View style={[
-                  styles.barFill, 
-                  { height: `${(item.value / maxBarValue) * 100}%` }
+                  styles.barFill,
+                  { height: `${(item.count / maxBarValue) * 100}%` }
                 ]} />
                 <Text style={styles.barLabel}>{item.label}</Text>
               </View>
@@ -125,10 +114,16 @@ export default function Stats() {
           <Text style={styles.sectionTitle}>カードの成熟度</Text>
           
           <View style={styles.stackedBarContainer}>
-            <View style={[styles.stackedSegment, { flex: 15, backgroundColor: Colors.dark.ratingAgain, borderTopLeftRadius: 8, borderBottomLeftRadius: 8 }]} />
-            <View style={[styles.stackedSegment, { flex: 10, backgroundColor: Colors.dark.ratingHard }]} />
-            <View style={[styles.stackedSegment, { flex: 35, backgroundColor: Colors.dark.ratingGood }]} />
-            <View style={[styles.stackedSegment, { flex: 40, backgroundColor: Colors.dark.ratingEasy, borderTopRightRadius: 8, borderBottomRightRadius: 8 }]} />
+            <View style={[styles.stackedSegment, { flex: mat.newC, backgroundColor: Colors.dark.ratingAgain, borderTopLeftRadius: 8, borderBottomLeftRadius: 8 }]} />
+            <View style={[styles.stackedSegment, { flex: mat.learnC, backgroundColor: Colors.dark.ratingHard }]} />
+            <View style={[styles.stackedSegment, { flex: mat.youngC, backgroundColor: Colors.dark.ratingGood }]} />
+            <View style={[styles.stackedSegment, { flex: mat.matureC, backgroundColor: Colors.dark.ratingEasy, borderTopRightRadius: 8, borderBottomRightRadius: 8 }]} />
+          </View>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: Spacing.two }}>
+            <Text style={styles.legendText}>新規 {mat.newC}</Text>
+            <Text style={styles.legendText}>学習 {mat.learnC}</Text>
+            <Text style={styles.legendText}>若い {mat.youngC}</Text>
+            <Text style={styles.legendText}>熟成 {mat.matureC}</Text>
           </View>
         </View>
 

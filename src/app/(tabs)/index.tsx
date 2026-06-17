@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Colors, Spacing, BORDER_RADIUS, Fonts } from "../../constants/theme";
 import Svg, { Circle } from 'react-native-svg';
-import { getDailyMetrics } from '../../db/repositories/cardRepository';
+import { getDailyMetrics, getStreak, getReviewedTodayCount } from '../../db/repositories/cardRepository';
 import { getAllDecksWithMetrics, Deck } from '../../db/repositories/deckRepository';
 import { useState, useCallback } from 'react';
 
@@ -50,6 +50,8 @@ export default function Home() {
 
   const [metrics, setMetrics] = useState({ newCards: 0, learningCards: 0, reviewCards: 0 });
   const [decks, setDecks] = useState<Deck[]>([]);
+  const [streak, setStreak] = useState(0);
+  const [reviewedToday, setReviewedToday] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
@@ -63,6 +65,8 @@ export default function Home() {
 
         const decksData = getAllDecksWithMetrics();
         setDecks(decksData);
+        setStreak(getStreak());
+        setReviewedToday(getReviewedTodayCount());
       } catch (e) {
         console.error('Failed to load metrics or decks', e);
       }
@@ -70,13 +74,15 @@ export default function Home() {
   );
 
   const totalDue = metrics.newCards + metrics.learningCards + metrics.reviewCards;
-  // Let's assume a daily target of say 40 cards total (20 new + 20 reviews ideally), 
-  // or just base progress on whether totalDue is 0.
-  // We'll hardcode a fake daily quota denominator for the visualization for now, 
-  // or use totalDue as remaining.
-  // Actually, if we just want a progress bar of today's session:
-  // If totalDue is 0, progress is 1. Else progress is something like 0.2 just for visual
-  const progress = totalDue === 0 ? 1 : 0.3; // Placeholder progress logic
+  // 進度環 = 今天已複習 / (已複習 + 尚待複習)。全部完成時為滿。
+  const plannedToday = reviewedToday + totalDue;
+  const progress = plannedToday === 0 ? 1 : reviewedToday / plannedToday;
+
+  const now = new Date();
+  const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
+  const dateText = `${now.getMonth() + 1}月${now.getDate()}日　${WEEKDAYS[now.getDay()]}曜日`;
+  const hour = now.getHours();
+  const greeting = hour < 11 ? 'おはよう' : hour < 18 ? 'こんにちは' : 'こんばんは';
 
   return (
     <View style={styles.container}>
@@ -84,14 +90,14 @@ export default function Home() {
         
         {/* Header Row */}
         <View style={styles.headerRow}>
-          <Text style={styles.dateText}>6月17日　火曜日</Text>
+          <Text style={styles.dateText}>{dateText}</Text>
           <View style={styles.streakContainer}>
             <Text style={{ fontSize: 14 }}>🔥</Text>
-            <Text style={styles.streakText}>12</Text>
+            <Text style={styles.streakText}>{streak}</Text>
           </View>
         </View>
 
-        <Text style={styles.greetingText}>おはよう</Text>
+        <Text style={styles.greetingText}>{greeting}</Text>
 
         {/* Main Goal Card */}
         <View style={styles.mainCard}>
@@ -151,7 +157,7 @@ export default function Home() {
         {/* Decks Header */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>デッキ</Text>
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/decks')}>
             <Text style={styles.viewAllText}>すべて表示</Text>
           </TouchableOpacity>
         </View>
