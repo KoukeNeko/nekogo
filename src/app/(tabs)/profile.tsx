@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Switch } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Colors, Spacing, BORDER_RADIUS, Fonts } from "../../constants/theme";
 import { AppBar } from "../../components/ui/AppBar";
 import { Settings, ChevronRight } from "lucide-react-native";

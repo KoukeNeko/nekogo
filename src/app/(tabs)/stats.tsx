@@ -1,13 +1,12 @@
 import React from "react";
-import { View, Text, StyleSheet, ScrollView, SafeAreaView } from "react-native";
+import { View, Text, StyleSheet, ScrollView } from "react-native";
 import { Colors, Spacing, BORDER_RADIUS } from "../../constants/theme";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Settings, User, Flame } from "lucide-react-native";
 import { AppBar } from "../../components/ui/AppBar";
 import { TouchableOpacity } from "react-native";
 
 export default function Stats() {
-  const insets = useSafeAreaInsets();
   
   // Mock data for bar chart
   const barChartData = [

@@ -1,6 +1,6 @@
 import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Colors, Spacing, BORDER_RADIUS, Fonts } from "../../constants/theme";
 import Svg, { Circle } from 'react-native-svg';
@@ -43,7 +43,6 @@ const CircularProgress = ({ progress, size, strokeWidth, color, trackColor, chil
 
 export default function Home() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
 
   return (
     <SafeAreaView style={styles.container}>

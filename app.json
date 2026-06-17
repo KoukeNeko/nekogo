@@ -8,7 +8,8 @@
     "scheme": "nekogo",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "dev.koukeneko.nekogo"
     },
     "android": {
       "adaptiveIcon": {

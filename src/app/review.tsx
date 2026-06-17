@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
 import { X, Volume2 } from "lucide-react-native";
 import Svg, { Line, Circle } from "react-native-svg";
 import { Colors, Spacing, Fonts, BORDER_RADIUS } from "../constants/theme";
@@ -8,13 +8,12 @@ import { FlashCard } from "../components/ui/FlashCard";
 import { RatingButtons } from "../components/ui/RatingButtons";
 import { AppBar } from "../components/ui/AppBar";
 import { Rating } from "ts-fsrs";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useRouter } from "expo-router";
 
 export default function Review() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const [isFlipped, setIsFlipped] = useState(false);
 
   // Mock data for the flashcard

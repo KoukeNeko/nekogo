@@ -1,6 +1,6 @@
 import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Colors, Spacing, BORDER_RADIUS, Fonts } from "../../constants/theme";
 import { AppBar } from "../../components/ui/AppBar";
@@ -9,7 +9,6 @@ import { ChevronLeft, MoreHorizontal, Plus } from "lucide-react-native";
 
 export default function Deck() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
 
   const mockWords = [
     { kanji: [{ ruby: "図", rt: "としょ" }, { ruby: "館", rt: "かん" }], english: "library", status: "4d", statusColor: "#66D283" },
