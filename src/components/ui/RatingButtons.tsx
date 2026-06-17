@@ -9,13 +9,23 @@ interface RatingButtonProps {
     onPress: (rating: Rating) => void;
 }
 
-export const RatingButtons: React.FC<{ onRating: (rating: Rating) => void }> = ({ onRating }) => {
+interface RatingButtonsProps {
+    onRating: (rating: Rating) => void;
+    intervals?: {
+        again: string;
+        hard: string;
+        good: string;
+        easy: string;
+    } | null;
+}
+
+export const RatingButtons: React.FC<RatingButtonsProps> = ({ onRating, intervals }) => {
     
     const buttons = [
-        { rating: Rating.Again, label: 'もう一度', interval: '<1m', color: Colors.dark.ratingAgain },
-        { rating: Rating.Hard, label: '難しい', interval: '8m', color: Colors.dark.ratingHard },
-        { rating: Rating.Good, label: '普通', interval: '4日', color: Colors.dark.ratingGood },
-        { rating: Rating.Easy, label: '簡単', interval: '9日', color: Colors.dark.ratingEasy },
+        { rating: Rating.Again, label: 'もう一度', interval: intervals?.again || '<1m', color: Colors.dark.ratingAgain },
+        { rating: Rating.Hard, label: '難しい', interval: intervals?.hard || '8m', color: Colors.dark.ratingHard },
+        { rating: Rating.Good, label: '普通', interval: intervals?.good || '4d', color: Colors.dark.ratingGood },
+        { rating: Rating.Easy, label: '簡単', interval: intervals?.easy || '9d', color: Colors.dark.ratingEasy },
     ];
 
     return (

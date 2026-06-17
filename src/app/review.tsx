@@ -9,30 +9,53 @@ import { RatingButtons } from "../components/ui/RatingButtons";
 import { AppBar } from "../components/ui/AppBar";
 import { Rating } from "ts-fsrs";
 import { SafeAreaView } from "react-native-safe-area-context";
-
 import { useRouter } from "expo-router";
+import { useReviewSession } from "../hooks/useReviewSession";
 
 export default function Review() {
   const router = useRouter();
   const [isFlipped, setIsFlipped] = useState(false);
 
-  // Mock data for the flashcard
-  const mockWord = [
-    { ruby: "食", rt: "た" },
-    { ruby: "べる" }
-  ];
+  const { 
+    currentItem, 
+    currentIndex, 
+    totalCards, 
+    isFinished, 
+    upcomingIntervals, 
+    handleRate,
+    resetSession 
+  } = useReviewSession();
 
   const handleFlip = () => {
     setIsFlipped(true);
   };
 
   const handleRating = (rating: Rating) => {
-    console.log(`User rated: ${rating}`);
-    // Reset to next card in a real app
+    handleRate(rating);
     setIsFlipped(false);
   };
 
-  const displayChunks = mockWord.map(chunk => ({
+  if (isFinished || !currentItem) {
+    return (
+      <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={{ color: Colors.dark.text, fontSize: 24, fontWeight: 'bold', marginBottom: Spacing.four }}>
+          複習完了！
+        </Text>
+        <TouchableOpacity 
+          style={styles.flipButton} 
+          onPress={() => {
+            resetSession();
+            setIsFlipped(false);
+          }}
+          style={{ paddingHorizontal: Spacing.four, paddingVertical: Spacing.three, backgroundColor: Colors.dark.primaryOrange, borderRadius: BORDER_RADIUS.md }}
+        >
+          <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>もう一度 (Restart Mock)</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
+
+  const displayChunks = currentItem.kanji.map(chunk => ({
     ruby: chunk.ruby,
     rt: chunk.rt
   }));
@@ -87,7 +110,7 @@ export default function Review() {
 
       {/* Meaning & POS */}
       <View style={styles.meaningArea}>
-        <Text style={styles.meaningText}>to eat</Text>
+        <Text style={styles.meaningText}>{currentItem.english}</Text>
         <Text style={styles.posText}>一段動詞 • 他動詞 — ichidan, transitive</Text>
       </View>
 
@@ -135,11 +158,11 @@ export default function Review() {
         }
         centerContent={
           <View style={styles.progressBarContainer}>
-            <View style={styles.progressBarFill} />
+            <View style={[styles.progressBarFill, { width: `${(currentIndex / totalCards) * 100}%` }]} />
           </View>
         }
         rightContent={
-          <Text style={styles.progressText}>23/87</Text>
+          <Text style={styles.progressText}>{currentIndex}/{totalCards}</Text>
         }
       />
 
@@ -154,7 +177,7 @@ export default function Review() {
 
       <View style={styles.bottomArea}>
         {isFlipped ? (
-          <RatingButtons onRating={handleRating} />
+          <RatingButtons onRating={handleRating} intervals={upcomingIntervals} />
         ) : (
           <View style={styles.actionWrapper}>
             <TouchableOpacity style={styles.flipButton} onPress={handleFlip}>
