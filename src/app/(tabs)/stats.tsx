@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet, ScrollView } from "react-native";
-import { Colors, Spacing, BORDER_RADIUS } from "../../constants/theme";
+import { Colors, Spacing, BORDER_RADIUS, Fonts } from "../../constants/theme";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Settings, User, Flame } from "lucide-react-native";
 import { AppBar } from "../../components/ui/AppBar";
@@ -48,8 +48,8 @@ export default function Stats() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <AppBar 
-        centerContent={
-          <Text style={{ color: Colors.dark.text, fontSize: 18, fontWeight: 'bold' }}>統計</Text>
+        leftContent={
+          <Text style={styles.headerTitle}>統計</Text>
         }
       />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -141,6 +141,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.background,
+  },
+  headerTitle: {
+    color: Colors.dark.text,
+    fontSize: 24,
+    fontWeight: 'bold',
+    fontFamily: Fonts?.sans,
   },
   scrollContent: {
     padding: Spacing.four,
