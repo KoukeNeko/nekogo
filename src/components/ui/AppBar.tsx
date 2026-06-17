@@ -23,7 +23,7 @@ export function AppBar({ leftContent, centerContent, rightContent }: AppBarProps
 const styles = StyleSheet.create({
   header: {
     paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
+    paddingTop: Spacing.two, // reduced from Spacing.three
   },
   topBar: {
     flexDirection: 'row',

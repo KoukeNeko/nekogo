@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView } fr
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Colors, Spacing, BORDER_RADIUS, Fonts } from "../../constants/theme";
-import { AppBar } from "../../components/ui/AppBar";
 import Svg, { Circle } from 'react-native-svg';
 
 const CircularProgress = ({ progress, size, strokeWidth, color, trackColor, children }: any) => {
@@ -48,20 +47,17 @@ export default function Home() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <AppBar 
-        leftContent={
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        
+        {/* Header Row */}
+        <View style={styles.headerRow}>
           <Text style={styles.dateText}>6月17日　火曜日</Text>
-        }
-        rightContent={
           <View style={styles.streakContainer}>
             <Text style={{ fontSize: 14 }}>🔥</Text>
             <Text style={styles.streakText}>12</Text>
           </View>
-        }
-      />
-      
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        
+        </View>
+
         <Text style={styles.greetingText}>おはよう</Text>
 
         {/* Main Goal Card */}
@@ -203,6 +199,12 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: Spacing.three,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.two,
   },
   dateText: {
     color: Colors.dark.textSecondary,
