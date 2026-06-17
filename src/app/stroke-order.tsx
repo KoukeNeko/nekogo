@@ -169,13 +169,15 @@ export default function StrokeOrder() {
 
                     <View style={styles.listContainer}>
                         {tab === 'words' && words.map((w, idx) => (
-                            <View key={`word-${idx}`} style={styles.listItem}>
-                                <TouchableOpacity style={styles.listItemSpeaker} onPress={() => speakJapanese(w.reading)}>
-                                    <Volume2 size={18} color={Colors.dark.pitchBlue} />
-                                </TouchableOpacity>
-                                <FuriganaText chunks={w.furigana} fontSize={24} align="flex-start" />
-                                <Text style={styles.listItemGloss}>{w.gloss.split(';')[0]}</Text>
-                            </View>
+                            <ExampleSentenceCard 
+                                key={`word-${idx}`} 
+                                example={{
+                                    jp: w.expression,
+                                    en: w.gloss.split(';')[0],
+                                    furigana: w.furigana
+                                }} 
+                                style={{ marginBottom: Spacing.three }} 
+                            />
                         ))}
                         {tab === 'sentences' && examples.map((e, idx) => (
                             <ExampleSentenceCard key={`ex-${idx}`} example={e} style={{ marginBottom: Spacing.three }} />
@@ -345,26 +347,5 @@ const styles = StyleSheet.create({
     },
     listContainer: {
         gap: Spacing.three,
-    },
-    listItem: {
-        borderWidth: 1,
-        borderColor: '#2E3135',
-        borderRadius: BORDER_RADIUS.md,
-        padding: Spacing.four,
-        backgroundColor: '#121316',
-        position: 'relative',
-    },
-    listItemSpeaker: {
-        position: 'absolute',
-        top: Spacing.four,
-        right: Spacing.four,
-        zIndex: 1,
-        padding: Spacing.two,
-    },
-    listItemGloss: {
-        color: Colors.dark.textSecondary,
-        fontSize: 14,
-        marginTop: Spacing.three,
-        lineHeight: 20,
     }
 });
