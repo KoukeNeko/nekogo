@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
 import { Colors, Spacing, Fonts, BORDER_RADIUS } from '../constants/theme';
 import { AppBar } from '../components/ui/AppBar';
+import { BackButton } from '../components/ui/BackButton';
 
 export default function LicensesScreen() {
     const router = useRouter();
@@ -13,9 +14,7 @@ export default function LicensesScreen() {
         <SafeAreaView style={styles.container} edges={['top']}>
             <AppBar 
                 leftContent={
-                    <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
-                        <ChevronLeft size={28} color={Colors.dark.text} />
-                    </TouchableOpacity>
+                    <BackButton />
                 }
                 centerContent={
                     <Text style={styles.headerTitle}>ライセンス</Text>

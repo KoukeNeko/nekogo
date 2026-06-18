@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft } from 'lucide-react-native';
 import { Colors, Spacing, BORDER_RADIUS, Fonts } from '../../constants/theme';
 import { AppBar } from '../../components/ui/AppBar';
+import { BackButton } from '../../components/ui/BackButton';
 import { getDailyMetrics } from '../../db/repositories/cardRepository';
 import { getAllDecksWithMetrics, Deck } from '../../db/repositories/deckRepository';
 
@@ -33,9 +34,7 @@ export default function DeckDetailScreen() {
       <SafeAreaView style={styles.container} edges={['top']}>
         <AppBar
           leftContent={
-            <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
-              <ChevronLeft size={28} color={Colors.dark.text} />
-            </TouchableOpacity>
+            <BackButton />
           }
           centerContent={<Text style={styles.headerTitle}>Loading...</Text>}
         />
@@ -50,9 +49,7 @@ export default function DeckDetailScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <AppBar
         leftContent={
-          <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
-            <ChevronLeft size={28} color={Colors.dark.text} />
-          </TouchableOpacity>
+          <BackButton />
         }
         centerContent={<Text style={styles.headerTitle}>{deck.name}</Text>}
         rightContent={

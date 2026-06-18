@@ -5,7 +5,8 @@ import { useRouter } from "expo-router";
 import { Colors, Spacing, BORDER_RADIUS, Fonts } from "../../constants/theme";
 import { AppBar } from "../../components/ui/AppBar";
 import { FuriganaText } from "../../components/ui/FuriganaText";
-import { ChevronLeft, MoreHorizontal, Plus } from "lucide-react-native";
+import { BackButton } from "../../components/ui/BackButton";
+import { MoreHorizontal, Plus } from "lucide-react-native";
 
 export default function Deck() {
   const router = useRouter();
@@ -23,9 +24,7 @@ export default function Deck() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <AppBar 
         leftContent={
-          <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
-            <ChevronLeft size={28} color={Colors.dark.text} />
-          </TouchableOpacity>
+          <BackButton />
         }
         centerContent={
           <Text style={styles.headerTitle}>N3 語彙</Text>

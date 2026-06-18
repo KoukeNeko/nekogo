@@ -5,6 +5,7 @@ import { useRouter } from "expo-router";
 import { Colors, Spacing, BORDER_RADIUS, Fonts } from "../constants/theme";
 import { ChevronLeft } from "lucide-react-native";
 import { AppBar } from "../components/ui/AppBar";
+import { BackButton } from "../components/ui/BackButton";
 import { SettingsCard, SettingsRow, SettingsDivider, SettingsSwitchRow } from "../components/ui/SettingsCard";
 import { useSettings, StrokeSpeed } from "../context/SettingsContext";
 
@@ -93,9 +94,7 @@ export default function SettingsScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <AppBar
         leftContent={
-          <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
-            <ChevronLeft size={28} color={Colors.dark.text} />
-          </TouchableOpacity>
+          <BackButton />
         }
         centerContent={
           <Text style={styles.headerTitle}>設定</Text>
