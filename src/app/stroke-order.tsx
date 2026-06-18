@@ -157,10 +157,10 @@ export default function StrokeOrder() {
                     <Text style={styles.sectionTitle}>例 ・ EXAMPLES</Text>
                     <View style={styles.tabContainer}>
                         <TouchableOpacity style={[styles.tabBtn, tab === 'words' && styles.tabBtnActive]} onPress={() => setTab('words')}>
-                            <Text style={[styles.tabBtnText, tab === 'words' && styles.tabBtnTextActive]}>Words</Text>
+                            <Text style={[styles.tabBtnText, tab === 'words' && styles.tabBtnTextActive]}>単語</Text>
                         </TouchableOpacity>
                         <TouchableOpacity style={[styles.tabBtn, tab === 'sentences' && styles.tabBtnActive]} onPress={() => setTab('sentences')}>
-                            <Text style={[styles.tabBtnText, tab === 'sentences' && styles.tabBtnTextActive]}>Sentences</Text>
+                            <Text style={[styles.tabBtnText, tab === 'sentences' && styles.tabBtnTextActive]}>例文</Text>
                         </TouchableOpacity>
                     </View>
 

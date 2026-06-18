@@ -380,6 +380,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
+    paddingBottom: 120, // offset for the absolute positioned bottom area
   },
   backContent: {
     flex: 1,
