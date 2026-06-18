@@ -113,3 +113,26 @@ export const fetchVocabByIds = async (ids: string[]): Promise<ApiVocab[]> => {
 /** 單字延伸：例句 + 構成漢字（卡片顯示時逐字取用）。 */
 export const fetchVocabDetail = async (vocabId: string): Promise<ApiVocabDetail> =>
   fetchJson<ApiVocabDetail>(`/api/vocab/${encodeURIComponent(vocabId)}`);
+
+export interface ApiKanjiExample {
+  id: number;
+  jp: string;
+  furigana: FuriganaChunk[];
+  en: string;
+}
+
+/** 含某漢字的單字（筆順頁相關單字）。 */
+export const fetchKanjiWords = async (char: string, limit = 10): Promise<ApiVocab[]> => {
+  const data = await fetchJson<{ words: ApiVocab[] }>(
+    `/api/kanji/${encodeURIComponent(char)}/words?limit=${limit}`,
+  );
+  return data.words;
+};
+
+/** 含某漢字的例句（筆順頁例句）。 */
+export const fetchKanjiExamples = async (char: string, limit = 10): Promise<ApiKanjiExample[]> => {
+  const data = await fetchJson<{ examples: ApiKanjiExample[] }>(
+    `/api/kanji/${encodeURIComponent(char)}/examples?limit=${limit}`,
+  );
+  return data.examples;
+};

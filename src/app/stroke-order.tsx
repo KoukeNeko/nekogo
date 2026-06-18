@@ -50,8 +50,28 @@ export default function StrokeOrder() {
     const [examples, setExamples] = useState<RelatedExample[]>([]);
 
     useEffect(() => {
-        setWords(getKanjiWords(kanjiChar, 10));
-        setExamples(getKanjiExamples(kanjiChar, 10));
+        let cancelled = false;
+        (async () => {
+            try {
+                const [relatedWords, relatedExamples] = await Promise.all([
+                    getKanjiWords(kanjiChar, 10),
+                    getKanjiExamples(kanjiChar, 10),
+                ]);
+                if (!cancelled) {
+                    setWords(relatedWords);
+                    setExamples(relatedExamples);
+                }
+            } catch (error) {
+                console.error('載入漢字相關資料失敗', error);
+                if (!cancelled) {
+                    setWords([]);
+                    setExamples([]);
+                }
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
     }, [kanjiChar]);
 
     const handleReplay = () => {
