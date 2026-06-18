@@ -1,5 +1,5 @@
 import { db } from '../schema';
-import { CONTENT_ALIAS as C } from '../contentDb';
+import { fetchDecks } from '../../api/contentApi';
 
 export interface Deck {
   id: string;
@@ -16,46 +16,47 @@ export interface Deck {
   };
 }
 
-export const getAllDecksWithMetrics = (): Deck[] => {
-  const now = new Date().getTime();
+/**
+ * 牌組目錄向雲端取得（名稱/描述/標籤/顏色/排序），每包的學習指標則由本機 cards 即時統計後合併。
+ */
+export const getAllDecksWithMetrics = async (): Promise<Deck[]> => {
+  const now = Date.now();
+  const apiDecks = await fetchDecks(); // 伺服器已依 sort_order 排序
 
-  // We can fetch decks and then aggregate stats, or do a complex query.
-  // For simplicity and compatibility with op-sqlite, we do a basic query for decks
-  // and aggregate metrics via a JOIN or separate queries.
-  // Given SQLite, doing a single query with LEFT JOIN and SUM(CASE) is efficient.
+  // 本機卡片依牌組彙整指標（state 0=新、1/3=學習中、2=複習；學習/複習取到期者）。
+  const metricRows = (db.executeSync(
+    `SELECT deck_id,
+            COUNT(*) AS totalCards,
+            SUM(CASE WHEN state = 0 THEN 1 ELSE 0 END) AS newCards,
+            SUM(CASE WHEN (state = 1 OR state = 3) AND due <= ? THEN 1 ELSE 0 END) AS learningCards,
+            SUM(CASE WHEN state = 2 AND due <= ? THEN 1 ELSE 0 END) AS reviewCards
+     FROM cards GROUP BY deck_id`,
+    [now, now],
+  ).rows ?? []) as any[];
 
-  const query = `
-    SELECT 
-      d.id, 
-      d.name, 
-      d.description, 
-      d.tags, 
-      d.color,
-      COUNT(c.id) as totalCards,
-      SUM(CASE WHEN c.state = 0 THEN 1 ELSE 0 END) as newCards,
-      SUM(CASE WHEN (c.state = 1 OR c.state = 3) AND c.due <= ? THEN 1 ELSE 0 END) as learningCards,
-      SUM(CASE WHEN c.state = 2 AND c.due <= ? THEN 1 ELSE 0 END) as reviewCards
-    FROM ${C}.decks d
-    LEFT JOIN cards c ON c.deck_id = d.id
-    GROUP BY d.id
-    ORDER BY d.sort_order
-  `;
+  const metricsByDeck = new Map<string, any>();
+  for (const row of metricRows) {
+    metricsByDeck.set(row.deck_id, row);
+  }
 
-  const result = db.executeSync(query, [now, now]);
-  const rows = result.rows || [];
-
-  return (rows as any[]).map((row: any) => ({
-    id: row.id,
-    name: row.name,
-    description: row.description,
-    tags: row.tags ? JSON.parse(row.tags) : [],
-    color: row.color,
-    metrics: {
-      totalCards: row.totalCards || 0,
-      newCards: row.newCards || 0,
-      learningCards: row.learningCards || 0,
-      reviewCards: row.reviewCards || 0,
-      dueCards: (row.newCards || 0) + (row.learningCards || 0) + (row.reviewCards || 0)
-    }
-  }));
+  return apiDecks.map((deck) => {
+    const metric = metricsByDeck.get(deck.id);
+    const newCards = metric?.newCards || 0;
+    const learningCards = metric?.learningCards || 0;
+    const reviewCards = metric?.reviewCards || 0;
+    return {
+      id: deck.id,
+      name: deck.name,
+      description: deck.description,
+      tags: deck.tags,
+      color: deck.color,
+      metrics: {
+        totalCards: metric?.totalCards || 0,
+        newCards,
+        learningCards,
+        reviewCards,
+        dueCards: newCards + learningCards + reviewCards,
+      },
+    };
+  });
 };

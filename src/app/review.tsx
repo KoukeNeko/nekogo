@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
 import { X, Volume2 } from "lucide-react-native";
 import Svg, { Line, Circle } from "react-native-svg";
@@ -40,20 +40,58 @@ export default function Review() {
   const insets = useSafeAreaInsets();
   const { deckId, vocabId } = useLocalSearchParams<{ deckId?: string, vocabId?: string }>();
   const isDictionaryMode = !!vocabId;
-  const dictItem = isDictionaryMode ? getVocabById(vocabId as string) : null;
   const [isFlipped, setIsFlipped] = useState(isDictionaryMode);
   const [kanjiTriggers, setKanjiTriggers] = useState<Record<string, number>>({});
 
-  const session = useReviewSession(isDictionaryMode ? undefined : deckId);
+  // 字典模式：向雲端查單字（async；沿用 isLoading/loadError 的 UI）。
+  const [dictItem, setDictItem] = useState<VocabItem | null>(null);
+  const [dictLoading, setDictLoading] = useState(isDictionaryMode);
+  const [dictError, setDictError] = useState(false);
+  const [dictRetry, setDictRetry] = useState(0);
+
+  useEffect(() => {
+    if (!isDictionaryMode) return;
+    let cancelled = false;
+    setDictLoading(true);
+    setDictError(false);
+    getVocabById(vocabId as string)
+      .then((item) => {
+        if (cancelled) return;
+        setDictItem(item);
+        setDictError(item === null);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        console.error('查詢單字失敗', error);
+        setDictItem(null);
+        setDictError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setDictLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [vocabId, isDictionaryMode, dictRetry]);
+
+  const session = useReviewSession(isDictionaryMode ? undefined : deckId, !isDictionaryMode);
   const currentItem = isDictionaryMode ? dictItem : session.currentItem;
   const currentIndex = isDictionaryMode ? 1 : session.currentIndex;
   const totalCards = isDictionaryMode ? 1 : session.totalCards;
-  const isFinished = isDictionaryMode ? !dictItem : session.isFinished;
-  const isLoading = isDictionaryMode ? false : session.isLoading;
-  const loadError = isDictionaryMode ? false : session.loadError;
+  const isFinished = isDictionaryMode ? (!dictLoading && !dictError && !dictItem) : session.isFinished;
+  const isLoading = isDictionaryMode ? dictLoading : session.isLoading;
+  const loadError = isDictionaryMode ? dictError : session.loadError;
   const upcomingIntervals = session.upcomingIntervals;
   const handleRate = session.handleRate;
   const resetSession = session.resetSession;
+
+  // 重試：字典模式重新查詢，複習模式重載工作階段。
+  const handleRetry = () => {
+    if (isDictionaryMode) {
+      setDictRetry((n) => n + 1);
+    } else {
+      resetSession();
+    }
+    setIsFlipped(isDictionaryMode);
+  };
 
   const handleFlip = () => {
     setIsFlipped(true);
@@ -82,7 +120,7 @@ export default function Review() {
           クラウドからカード内容を取得できませんでした。サーバーが起動しているか確認して再試行してください。
         </Text>
         <TouchableOpacity
-          onPress={() => { resetSession(); setIsFlipped(false); }}
+          onPress={handleRetry}
           style={[{ paddingHorizontal: Spacing.four, paddingVertical: Spacing.three, backgroundColor: Colors.dark.primaryOrange, borderRadius: BORDER_RADIUS.md }]}
         >
           <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>再試行</Text>

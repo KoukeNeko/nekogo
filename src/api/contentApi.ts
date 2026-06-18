@@ -65,9 +65,11 @@ export interface ApiVocabDetail extends ApiVocab {
 export interface ApiDeck {
   id: string;
   name: string;
-  level: number;
+  description: string;
   tags: string[];
   color: string;
+  sortOrder: number;
+  kind: string;
   count: number;
   version: string;
 }

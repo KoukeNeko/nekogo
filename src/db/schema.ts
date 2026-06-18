@@ -5,12 +5,12 @@ export const db = open({
 });
 
 /**
- * 初始化「可寫主庫」的資料表（cards / revlog）。牌組目錄已改為資料驅動，移到內容庫
- * content.decks / content.deck_vocab（見 build-content-db.mjs），不再於主庫存放。
- * 詞彙內容（vocab/kanji/example）來自 ATTACH 的唯讀 content 庫，不在此建立。
+ * 初始化「可寫主庫」的資料表（cards / revlog）。詞彙內容（vocab/kanji/example/牌組）
+ * 全部改由雲端伺服器供應（見 src/api/contentApi.ts），本機不再內建或 ATTACH 內容庫。
  *
- * cards 參照 content.vocab.id（不再用 notes）。舊版 cards 以 note_id 參照 notes，
- * 偵測到即丟棄重建（dev 階段拋棄舊複習進度可接受），並移除 notes 表。
+ * cards 參照雲端 vocab 的 id，並存 intro_rank（新卡引入順序，seed 時自雲端取得）。
+ * 舊版 cards 以 note_id 參照 notes，偵測到即丟棄重建（dev 階段拋棄舊複習進度可接受），
+ * 並移除 notes 表與舊的本機 decks 表。
  */
 export const initDB = () => {
   try {
@@ -29,6 +29,7 @@ export const initDB = () => {
         id TEXT PRIMARY KEY,
         vocab_id TEXT NOT NULL,
         deck_id TEXT NOT NULL,
+        intro_rank INTEGER,
         due INTEGER NOT NULL,
         stability REAL NOT NULL,
         difficulty REAL NOT NULL,
@@ -40,6 +41,12 @@ export const initDB = () => {
         last_review INTEGER
       );
     `);
+
+    // 舊版 cards 無 intro_rank（新卡排序欄）則補上，避免重灌使用者複習進度。
+    const cardColsNow = (db.executeSync('PRAGMA table_info(cards)').rows ?? []) as any[];
+    if (!cardColsNow.some((col) => col.name === 'intro_rank')) {
+      db.executeSync('ALTER TABLE cards ADD COLUMN intro_rank INTEGER');
+    }
 
     // 複習紀錄（FSRS 個人化訓練原料；研究 §C.3 建議從第一天完整記錄）。
     db.executeSync(`

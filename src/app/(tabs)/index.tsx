@@ -55,6 +55,8 @@ export default function Home() {
 
   useFocusEffect(
     useCallback(() => {
+      let cancelled = false;
+      // 本機指標即時可得（同步）。
       try {
         const data = getDailyMetrics();
         setMetrics({
@@ -62,14 +64,18 @@ export default function Home() {
           learningCards: data.learningCards,
           reviewCards: data.reviewCards
         });
-
-        const decksData = getAllDecksWithMetrics();
-        setDecks(decksData);
         setStreak(getStreak());
         setReviewedToday(getReviewedTodayCount());
       } catch (e) {
-        console.error('Failed to load metrics or decks', e);
+        console.error('Failed to load metrics', e);
       }
+
+      // 牌組目錄走雲端（async）。
+      getAllDecksWithMetrics()
+        .then((decksData) => { if (!cancelled) setDecks(decksData); })
+        .catch((e) => console.error('Failed to load decks', e));
+
+      return () => { cancelled = true; };
     }, [])
   );
 

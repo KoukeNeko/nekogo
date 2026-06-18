@@ -38,15 +38,19 @@ export interface VocabItem {
   fsrsCard: Card;
 }
 
-export const useReviewSession = (deckId?: string) => {
+export const useReviewSession = (deckId?: string, enabled: boolean = true) => {
   const [deck, setDeck] = useState<VocabItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(false); // 雲端內容載入失敗（離線/伺服器掛掉）
   const detailLoadedRef = useRef<Set<string>>(new Set());
 
-  // 載入卡片：本機挑卡 + 雲端批次抓內容（async）。
+  // 載入卡片：本機挑卡 + 雲端批次抓內容（async）。字典模式（enabled=false）不需挑卡。
   useEffect(() => {
+    if (!enabled) {
+      setIsLoading(false);
+      return;
+    }
     let cancelled = false;
     const loadCards = async () => {
       try {
@@ -72,7 +76,7 @@ export const useReviewSession = (deckId?: string) => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, []);
+  }, [deckId, enabled]);
 
   const currentItem = deck[currentIndex] || null;
   const isFinished = !isLoading && (deck.length === 0 || currentIndex >= deck.length);

@@ -1,48 +1,7 @@
 import { db } from '../schema';
-import { Card } from '../../services/fsrs';
-import { VocabItem, FuriganaChunk, ExampleSentence, KanjiInfo } from '../../hooks/useReviewSession';
-import { CONTENT_ALIAS as C } from '../contentDb';
-import { fetchVocabByIds, ApiVocab } from '../../api/contentApi';
-
-const parseJson = <T>(value: string | null, fallback: T): T => {
-  if (!value) return fallback;
-  try {
-    return JSON.parse(value) as T;
-  } catch {
-    return fallback;
-  }
-};
-
-// 取該詞的一句例句（content.vocab_example → content.example）。
-const loadExample = (vocabId: string): ExampleSentence | null => {
-  const row = db.executeSync(
-    `SELECT e.jp, e.furigana, e.en FROM ${C}.example e
-     JOIN ${C}.vocab_example ve ON e.id = ve.example_id
-     WHERE ve.vocab_id = ? LIMIT 1`,
-    [vocabId],
-  ).rows?.[0] as any;
-  if (!row) return null;
-  return { jp: row.jp, furigana: parseJson<FuriganaChunk[]>(row.furigana, []), en: row.en };
-};
-
-// 取該詞的構成漢字（content.vocab_kanji → content.kanji）。
-const loadKanjiList = (vocabId: string): KanjiInfo[] => {
-  const rows = (db.executeSync(
-    `SELECT k.char, k.strokes, k.stroke_count, k.jlpt, k.on_readings, k.kun_readings, k.meanings
-     FROM ${C}.kanji k JOIN ${C}.vocab_kanji vk ON k.char = vk.char
-     WHERE vk.vocab_id = ?`,
-    [vocabId],
-  ).rows ?? []) as any[];
-  return rows.map((r) => ({
-    char: r.char,
-    strokes: parseJson<string[]>(r.strokes, []),
-    strokeCount: r.stroke_count ?? null,
-    jlpt: r.jlpt ?? null,
-    on: parseJson<string[]>(r.on_readings, []),
-    kun: parseJson<string[]>(r.kun_readings, []),
-    meanings: parseJson<string[]>(r.meanings, []),
-  }));
-};
+import { Card, createNewCard } from '../../services/fsrs';
+import { VocabItem } from '../../hooks/useReviewSession';
+import { fetchVocabByIds, fetchVocabDetail, ApiVocab } from '../../api/contentApi';
 
 // 本機 cards 的一列 → FSRS Card。
 const cardRowToFsrs = (row: any): Card =>
@@ -87,38 +46,26 @@ export const getDailyMetrics = (deckId?: string) => {
   return { newCards, learningCards, reviewCards };
 };
 
-export const getVocabById = (vocabId: string): VocabItem | null => {
-  const row = db.executeSync(
-    `SELECT v.id AS vocab_id, v.expression, v.reading, v.furigana, v.gloss, v.pos, v.pitch, v.jlpt
-     FROM ${C}.vocab v
-     WHERE v.id = ? LIMIT 1`,
-    [vocabId]
-  ).rows?.[0] as any;
-  if (!row) return null;
-
-  const dummyCard: Card = {
-    due: new Date(),
-    stability: 0,
-    difficulty: 0,
-    elapsed_days: 0,
-    scheduled_days: 0,
-    reps: 0,
-    lapses: 0,
-    state: 0,
-  };
-
-  return {
-    id: row.vocab_id,
-    kanji: parseJson<FuriganaChunk[]>(row.furigana, [{ ruby: row.expression }]),
-    reading: row.reading,
-    english: row.gloss,
-    pos: row.pos ?? null,
-    pitch: row.pitch ?? null,
-    jlpt: row.jlpt ?? null,
-    example: loadExample(row.vocab_id),
-    kanjiList: loadKanjiList(row.vocab_id),
-    fsrsCard: dummyCard,
-  };
+// 字典模式：向雲端取單字 + 例句 + 構成漢字。FSRS 用空卡（字典查詢不影響排程）。
+export const getVocabById = async (vocabId: string): Promise<VocabItem | null> => {
+  try {
+    const detail = await fetchVocabDetail(vocabId);
+    return {
+      id: detail.id,
+      kanji: detail.furigana ?? [{ ruby: detail.expression }],
+      reading: detail.reading,
+      english: detail.gloss,
+      pos: detail.pos ?? null,
+      pitch: detail.pitch ?? null,
+      jlpt: detail.jlpt ?? null,
+      example: detail.examples[0] ?? null,
+      kanjiList: detail.kanji,
+      fsrsCard: createNewCard(),
+    };
+  } catch (error) {
+    console.error('查詢單字失敗', error);
+    return null;
+  }
 };
 
 /**
@@ -139,10 +86,10 @@ export const getDueCards = async (
     deckId ? [now, deckId, reviewLimit] : [now, reviewLimit],
   ).rows ?? []) as any[];
 
-  // 2. 新卡（state = 0）— 依引入順序（暫用本機 content.intro_rank 排序；Slice 5 移除 ATTACH 後改存於卡片）。
+  // 2. 新卡（state = 0）— 依引入順序，intro_rank 於 seed 時自雲端存於本機卡片。
   const newRows = (db.executeSync(
-    `SELECT c.* FROM cards c JOIN ${C}.vocab v ON c.vocab_id = v.id
-     WHERE c.state = 0 ${deckClause} ORDER BY v.intro_rank IS NULL, v.intro_rank ASC LIMIT ?`,
+    `SELECT c.* FROM cards c
+     WHERE c.state = 0 ${deckClause} ORDER BY c.intro_rank IS NULL, c.intro_rank ASC LIMIT ?`,
     deckId ? [deckId, newLimit] : [newLimit],
   ).rows ?? []) as any[];
 

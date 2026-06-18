@@ -17,15 +17,15 @@ export default function DeckDetailScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      try {
-        const decks = getAllDecksWithMetrics();
-        const found = decks.find(d => d.id === id);
-        if (found) {
-          setDeck(found);
-        }
-      } catch (e) {
-        console.error('Failed to load deck stats', e);
-      }
+      let cancelled = false;
+      getAllDecksWithMetrics()
+        .then((decks) => {
+          if (cancelled) return;
+          const found = decks.find((d) => d.id === id);
+          if (found) setDeck(found);
+        })
+        .catch((e) => console.error('Failed to load deck stats', e));
+      return () => { cancelled = true; };
     }, [id])
   );
 

@@ -16,13 +16,11 @@ export default function Decks() {
 
   useFocusEffect(
     useCallback(() => {
-      try {
-        const data = getAllDecksWithMetrics();
-        // Sort decks if needed. They are currently random. Let's keep them as is.
-        setDecks(data);
-      } catch (e) {
-        console.error('Failed to load decks', e);
-      }
+      let cancelled = false;
+      getAllDecksWithMetrics()
+        .then((data) => { if (!cancelled) setDecks(data); })
+        .catch((e) => console.error('Failed to load decks', e));
+      return () => { cancelled = true; };
     }, [])
   );
 
