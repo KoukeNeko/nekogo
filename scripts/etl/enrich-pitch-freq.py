@@ -19,7 +19,7 @@ import fugashi
 import pyopenjtalk
 from wordfreq import zipf_frequency
 
-DB_PATH = 'assets/db/kioku-content.db'
+DB_PATH = '../../server/data/kioku-content.db'
 LANG = 'ja'
 NO_ACCENT = '*'
 ACCENT_PARTICLE = 'が'  # 接在詞後，靠助詞高低揭示「平板(0) vs 尾高(N)」

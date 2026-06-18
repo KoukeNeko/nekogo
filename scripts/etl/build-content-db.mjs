@@ -28,7 +28,8 @@ const kuromoji = require('kuromoji');
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const CACHE_DIR = join(SCRIPT_DIR, '.cache');
 const APP_ROOT = join(SCRIPT_DIR, '..', '..');
-const OUTPUT_DIR = join(APP_ROOT, 'assets', 'db');
+// 內容庫的正式位置改為隨伺服器（repo/server/data）；App 端遷移完成後不再內建。
+const OUTPUT_DIR = join(APP_ROOT, '..', '..', 'server', 'data');
 const OUTPUT_PATH = join(OUTPUT_DIR, 'kioku-content.db');
 const KUROMOJI_DICT_PATH = join(APP_ROOT, 'node_modules', 'kuromoji', 'dict');
 

@@ -2,6 +2,7 @@ import { db } from '../schema';
 import { Card } from '../../services/fsrs';
 import { VocabItem, FuriganaChunk, ExampleSentence, KanjiInfo } from '../../hooks/useReviewSession';
 import { CONTENT_ALIAS as C } from '../contentDb';
+import { fetchVocabByIds, ApiVocab } from '../../api/contentApi';
 
 const parseJson = <T>(value: string | null, fallback: T): T => {
   if (!value) return fallback;
@@ -43,18 +44,9 @@ const loadKanjiList = (vocabId: string): KanjiInfo[] => {
   }));
 };
 
-// cards JOIN content.vocab 的一列 → 充實後的 VocabItem。
-const toVocabItem = (row: any): VocabItem => ({
-  id: row.vocab_id,
-  kanji: parseJson<FuriganaChunk[]>(row.furigana, [{ ruby: row.expression }]),
-  reading: row.reading,
-  english: row.gloss,
-  pos: row.pos ?? null,
-  pitch: row.pitch ?? null,
-  jlpt: row.jlpt ?? null,
-  example: loadExample(row.vocab_id),
-  kanjiList: loadKanjiList(row.vocab_id),
-  fsrsCard: {
+// 本機 cards 的一列 → FSRS Card。
+const cardRowToFsrs = (row: any): Card =>
+  ({
     due: new Date(row.due),
     stability: row.stability,
     difficulty: row.difficulty,
@@ -64,7 +56,20 @@ const toVocabItem = (row: any): VocabItem => ({
     lapses: row.lapses,
     state: row.state,
     last_review: row.last_review ? new Date(row.last_review) : undefined,
-  } as Card,
+  } as Card);
+
+// 雲端內容 + 本機 FSRS → VocabItem。例句/構成漢字延後抓（顯示該卡時，見 useReviewSession）。
+const toVocabItemFromApi = (vocab: ApiVocab, fsrsCard: Card): VocabItem => ({
+  id: vocab.id,
+  kanji: vocab.furigana ?? [{ ruby: vocab.expression }],
+  reading: vocab.reading,
+  english: vocab.gloss,
+  pos: vocab.pos ?? null,
+  pitch: vocab.pitch ?? null,
+  jlpt: vocab.jlpt ?? null,
+  example: null,
+  kanjiList: [],
+  fsrsCard,
 });
 
 export const getDailyMetrics = (deckId?: string) => {
@@ -81,11 +86,6 @@ export const getDailyMetrics = (deckId?: string) => {
 
   return { newCards, learningCards, reviewCards };
 };
-
-const CARD_SELECT = `
-  SELECT c.*, v.expression, v.reading, v.furigana, v.gloss, v.pos, v.pitch, v.jlpt
-  FROM cards c
-  JOIN ${C}.vocab v ON c.vocab_id = v.id`;
 
 export const getVocabById = (vocabId: string): VocabItem | null => {
   const row = db.executeSync(
@@ -121,23 +121,51 @@ export const getVocabById = (vocabId: string): VocabItem | null => {
   };
 };
 
-export const getDueCards = (newLimit: number = 20, reviewLimit: number = 50, deckId?: string): VocabItem[] => {
+/**
+ * 取本工作階段的卡片：本機挑卡（複習依到期、新卡依 intro_rank）→ 向雲端批次抓內容 → 依序合併。
+ * 例句/構成漢字不在此抓，於 useReviewSession 顯示該卡時才取（fetchVocabDetail）。
+ */
+export const getDueCards = async (
+  newLimit: number = 20,
+  reviewLimit: number = 50,
+  deckId?: string,
+): Promise<VocabItem[]> => {
   const now = Date.now();
   const deckClause = deckId ? 'AND c.deck_id = ?' : '';
 
-  // 1. 複習/學習中卡（state > 0 且到期）
+  // 1. 複習/學習中卡（state > 0 且到期）— 純本機，依到期排序。
   const reviewRows = (db.executeSync(
-    `${CARD_SELECT} WHERE c.state > 0 AND c.due <= ? ${deckClause} ORDER BY c.due ASC LIMIT ?`,
+    `SELECT c.* FROM cards c WHERE c.state > 0 AND c.due <= ? ${deckClause} ORDER BY c.due ASC LIMIT ?`,
     deckId ? [now, deckId, reviewLimit] : [now, reviewLimit],
   ).rows ?? []) as any[];
 
-  // 2. 新卡（state = 0）：依「引入順序」引入（高頻優先，機能詞/單漢字/重複異讀降權）。
+  // 2. 新卡（state = 0）— 依引入順序（暫用本機 content.intro_rank 排序；Slice 5 移除 ATTACH 後改存於卡片）。
   const newRows = (db.executeSync(
-    `${CARD_SELECT} WHERE c.state = 0 ${deckClause} ORDER BY v.intro_rank IS NULL, v.intro_rank ASC LIMIT ?`,
+    `SELECT c.* FROM cards c JOIN ${C}.vocab v ON c.vocab_id = v.id
+     WHERE c.state = 0 ${deckClause} ORDER BY v.intro_rank IS NULL, v.intro_rank ASC LIMIT ?`,
     deckId ? [deckId, newLimit] : [newLimit],
   ).rows ?? []) as any[];
 
-  return [...reviewRows, ...newRows].map(toVocabItem);
+  const orderedRows = [...reviewRows, ...newRows];
+  if (orderedRows.length === 0) return [];
+
+  // 3. 內容向雲端批次取得，依本機挑卡順序組裝（缺內容者略過並記錄，以利診斷內容版本不一致）。
+  const vocabById = new Map<string, ApiVocab>();
+  for (const vocab of await fetchVocabByIds(orderedRows.map((row) => row.vocab_id))) {
+    vocabById.set(vocab.id, vocab);
+  }
+
+  const missingIds = orderedRows.filter((row) => !vocabById.has(row.vocab_id)).map((row) => row.vocab_id);
+  if (missingIds.length > 0) {
+    console.warn(`雲端缺少 ${missingIds.length} 張卡的內容（內容版本可能不一致）：`, missingIds.slice(0, 10));
+  }
+
+  const items: VocabItem[] = [];
+  for (const row of orderedRows) {
+    const vocab = vocabById.get(row.vocab_id);
+    if (vocab) items.push(toVocabItemFromApi(vocab, cardRowToFsrs(row)));
+  }
+  return items;
 };
 
 export const updateCardState = (vocabId: string, fsrsCard: Card, rating: number) => {

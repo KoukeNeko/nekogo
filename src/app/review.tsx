@@ -50,6 +50,7 @@ export default function Review() {
   const totalCards = isDictionaryMode ? 1 : session.totalCards;
   const isFinished = isDictionaryMode ? !dictItem : session.isFinished;
   const isLoading = isDictionaryMode ? false : session.isLoading;
+  const loadError = isDictionaryMode ? false : session.loadError;
   const upcomingIntervals = session.upcomingIntervals;
   const handleRate = session.handleRate;
   const resetSession = session.resetSession;
@@ -67,6 +68,25 @@ export default function Review() {
     return (
       <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]} edges={['top']}>
         <ActivityIndicator size="large" color={Colors.dark.primaryOrange} />
+      </SafeAreaView>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: Spacing.four }]} edges={['top']}>
+        <Text style={{ color: Colors.dark.text, fontSize: 20, fontWeight: 'bold', marginBottom: Spacing.two, textAlign: 'center' }}>
+          サーバーに接続できません
+        </Text>
+        <Text style={{ color: Colors.dark.textSecondary, fontSize: 14, marginBottom: Spacing.four, textAlign: 'center', lineHeight: 20 }}>
+          クラウドからカード内容を取得できませんでした。サーバーが起動しているか確認して再試行してください。
+        </Text>
+        <TouchableOpacity
+          onPress={() => { resetSession(); setIsFlipped(false); }}
+          style={[{ paddingHorizontal: Spacing.four, paddingVertical: Spacing.three, backgroundColor: Colors.dark.primaryOrange, borderRadius: BORDER_RADIUS.md }]}
+        >
+          <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>再試行</Text>
+        </TouchableOpacity>
       </SafeAreaView>
     );
   }
