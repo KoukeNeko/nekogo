@@ -53,6 +53,14 @@ const main = () => {
   check('intro_rank 全覆蓋（每詞皆有引入順序）', introCount === vocab, `${introCount}/${vocab}`);
   check('intro_rank 全域唯一（無重複排名）', dupIntro === 0, `重複 ${dupIntro}`);
 
+  // 資料驅動牌組：decks 目錄 + deck_vocab 成員（取代寫死）。
+  const deckCount = count(db, 'SELECT COUNT(*) n FROM decks');
+  const deckVocabCount = count(db, 'SELECT COUNT(*) n FROM deck_vocab');
+  const orphanDeckVocab = count(db, 'SELECT COUNT(*) n FROM deck_vocab WHERE vocab_id NOT IN (SELECT id FROM vocab)');
+  check('decks 五個 JLPT 牌組', deckCount === 5, `${deckCount}`);
+  check('deck_vocab 成員數 = JLPT 標記詞', deckVocabCount === jlptCount, `${deckVocabCount} / ${jlptCount}`);
+  check('deck_vocab.vocab_id 無孤兒', orphanDeckVocab === 0, `${orphanDeckVocab}`);
+
   // 外鍵參照完整（node:sqlite 不強制 FK，故手動查孤兒）。
   const orphanVk = count(db, 'SELECT COUNT(*) n FROM vocab_kanji WHERE vocab_id NOT IN (SELECT id FROM vocab)');
   const orphanVkChar = count(db, 'SELECT COUNT(*) n FROM vocab_kanji WHERE char NOT IN (SELECT char FROM kanji)');

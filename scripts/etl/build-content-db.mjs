@@ -34,6 +34,15 @@ const OUTPUT_PATH = join(OUTPUT_DIR, 'kioku-content.db');
 const KUROMOJI_DICT_PATH = join(APP_ROOT, 'node_modules', 'kuromoji', 'dict');
 
 const JLPT_LEVELS = [5, 4, 3, 2, 1];
+
+// JLPT 牌組目錄（寫入 decks 表，資料驅動 → 取代 App/Server 各處 hardcode）。
+const JLPT_DECK_META = [
+  { id: 'deck-n5', level: 5, name: 'JLPT N5', description: 'JLPT N5 語彙', tags: ['N5', '語彙'], color: '#66D283' },
+  { id: 'deck-n4', level: 4, name: 'JLPT N4', description: 'JLPT N4 語彙', tags: ['N4', '語彙'], color: '#4DA6FF' },
+  { id: 'deck-n3', level: 3, name: 'JLPT N3', description: 'JLPT N3 語彙', tags: ['N3', '語彙'], color: '#FF5A36' },
+  { id: 'deck-n2', level: 2, name: 'JLPT N2', description: 'JLPT N2 語彙', tags: ['N2', '語彙'], color: '#5CB3FF' },
+  { id: 'deck-n1', level: 1, name: 'JLPT N1', description: 'JLPT N1 語彙', tags: ['N1', '語彙'], color: '#9D72FF' },
+];
 const MAX_EXAMPLES_PER_VOCAB = 2;
 const MIN_EXAMPLE_LEN = 8;
 const MAX_EXAMPLE_LEN = 45;
@@ -287,10 +296,26 @@ CREATE TABLE vocab_example (
   example_id INTEGER NOT NULL,
   PRIMARY KEY (vocab_id, example_id)
 );
+CREATE TABLE decks (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT,
+  tags TEXT,
+  color TEXT,
+  sort_order INTEGER,
+  kind TEXT
+);
+CREATE TABLE deck_vocab (
+  deck_id TEXT NOT NULL,
+  vocab_id TEXT NOT NULL,
+  position INTEGER,
+  PRIMARY KEY (deck_id, vocab_id)
+);
 CREATE INDEX idx_vocab_jlpt ON vocab(jlpt);
 CREATE INDEX idx_vocab_expr ON vocab(expression);
 CREATE INDEX idx_vk_char ON vocab_kanji(char);
 CREATE INDEX idx_ve_vocab ON vocab_example(vocab_id);
+CREATE INDEX idx_deck_vocab_deck ON deck_vocab(deck_id);
 `;
 
 const main = async () => {
@@ -329,7 +354,7 @@ const main = async () => {
   db.exec(SCRIPT_PRAGMA());
   db.exec(SCHEMA);
 
-  const stats = { vocab: 0, jlpt: 0, furigana: 0, jukugo: 0, kanji: 0, example: 0, vkLinks: 0, veLinks: 0 };
+  const stats = { vocab: 0, jlpt: 0, furigana: 0, jukugo: 0, kanji: 0, example: 0, vkLinks: 0, veLinks: 0, decks: 0, deckVocab: 0 };
 
   // --- kanji table：vocab 用到的所有漢字 ∩ 有筆順者 ---
   const neededKanji = new Set(vocab.flatMap((v) => kanjiChars(v.expression)));
@@ -400,6 +425,22 @@ const main = async () => {
     }
   }
   db.exec('COMMIT');
+
+  // --- decks + deck_vocab：資料驅動的牌組目錄與成員（取代寫死）。JLPT 牌組依 jlpt 灌成員，position 留 NULL（由 vocab.intro_rank 排序）。 ---
+  db.exec('BEGIN');
+  const insDeck = db.prepare(
+    'INSERT INTO decks (id, name, description, tags, color, sort_order, kind) VALUES (?, ?, ?, ?, ?, ?, ?)',
+  );
+  const insDeckVocab = db.prepare('INSERT OR IGNORE INTO deck_vocab (deck_id, vocab_id, position) VALUES (?, ?, NULL)');
+  JLPT_DECK_META.forEach((deck, order) => {
+    insDeck.run(deck.id, deck.name, deck.description, JSON.stringify(deck.tags), deck.color, order, 'jlpt');
+    const members = db.prepare('SELECT id FROM vocab WHERE jlpt = ?').all(deck.level);
+    for (const member of members) insDeckVocab.run(deck.id, member.id);
+    stats.deckVocab += members.length;
+  });
+  stats.decks = JLPT_DECK_META.length;
+  db.exec('COMMIT');
+
   db.close();
 
   const pct = (n) => `${((n / stats.vocab) * 100).toFixed(1)}%`;
@@ -408,6 +449,7 @@ const main = async () => {
   console.log(`  furigana: ${stats.furigana}（${pct(stats.furigana)}）　pitch/freq_rank/intro_rank 由 enrich-pitch-freq.py 填入`);
   console.log(`kanji: ${stats.kanji}　example: ${stats.example}`);
   console.log(`連結 vocab_kanji: ${stats.vkLinks}　vocab_example: ${stats.veLinks}`);
+  console.log(`牌組 decks: ${stats.decks}　deck_vocab: ${stats.deckVocab}`);
   console.log('\n✅ 內容庫組裝完成');
 };
 

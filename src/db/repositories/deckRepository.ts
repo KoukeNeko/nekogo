@@ -1,4 +1,5 @@
 import { db } from '../schema';
+import { CONTENT_ALIAS as C } from '../contentDb';
 
 export interface Deck {
   id: string;
@@ -34,9 +35,10 @@ export const getAllDecksWithMetrics = (): Deck[] => {
       SUM(CASE WHEN c.state = 0 THEN 1 ELSE 0 END) as newCards,
       SUM(CASE WHEN (c.state = 1 OR c.state = 3) AND c.due <= ? THEN 1 ELSE 0 END) as learningCards,
       SUM(CASE WHEN c.state = 2 AND c.due <= ? THEN 1 ELSE 0 END) as reviewCards
-    FROM decks d
+    FROM ${C}.decks d
     LEFT JOIN cards c ON c.deck_id = d.id
     GROUP BY d.id
+    ORDER BY d.sort_order
   `;
 
   const result = db.executeSync(query, [now, now]);

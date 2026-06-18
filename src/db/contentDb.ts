@@ -20,7 +20,8 @@ export const CONTENT_ALIAS = 'content';
 // 內容版本：bump 檔名即可在下次啟動強制重新複製（不動主庫的 cards/revlog）。
 // v2：音高改用 UniDic（取代 Kanjium）、新增 freq_rank 詞頻 + intro_rank 引入順序。
 // v4：用全新版本號強制重抓 —— 開發模擬器殘留舊 v2/v3 快取（無 intro_rank 欄位）會擋住重抓。
-const CONTENT_DB_FILE = 'kioku-content-v4.db';
+// v5：內容庫新增 decks / deck_vocab 表（資料驅動牌組），App 改讀 content.decks。
+const CONTENT_DB_FILE = 'kioku-content-v5.db';
 const DEST_URI = `${FileSystem.documentDirectory}${CONTENT_DB_FILE}`;
 const DEST_PATH = DEST_URI.replace('file://', '');
 
