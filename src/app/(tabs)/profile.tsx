@@ -24,7 +24,7 @@ export default function Profile() {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
         {/* Profile Card */}
-        <TouchableOpacity style={styles.profileCard}>
+        <TouchableOpacity style={styles.profileCard} onPress={() => router.push('/login')}>
           <View style={styles.profileTop}>
             <View style={styles.profileInfo}>
               <View style={styles.avatar}>
