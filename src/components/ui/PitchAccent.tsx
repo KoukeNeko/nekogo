@@ -78,14 +78,18 @@ export const PitchAccent: React.FC<PitchAccentProps> = ({ reading, accent }) => 
       </Svg>
       <View style={[styles.kanaRow, { width }]}>
         {morae.map((mora, index) => (
-          <Text 
+          <View 
             key={`kana-${index}`} 
-            style={[styles.kana, { width: MORA_WIDTH }]}
-            numberOfLines={1}
-            allowFontScaling={false}
+            style={{ width: MORA_WIDTH, height: 24, alignItems: 'center', justifyContent: 'center' }}
           >
-            {mora}
-          </Text>
+            <Text 
+              style={[styles.kana, { position: 'absolute', width: 60 }]}
+              numberOfLines={1}
+              allowFontScaling={false}
+            >
+              {mora}
+            </Text>
+          </View>
         ))}
       </View>
     </View>
