@@ -67,7 +67,7 @@ export default function Decks() {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>デッキ</Text>
         <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.iconButton}>
+          <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/search')}>
             <Search size={22} color={Colors.dark.textSecondary} />
           </TouchableOpacity>
           <View style={styles.viewToggle}>
