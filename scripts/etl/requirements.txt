@@ -1,0 +1,8 @@
+# 內容庫 enrich 步驟（音高 + 詞頻 + 引入順序）所需的 Python 套件。
+# 一次性建立 venv：npm run content:setup
+fugashi          # UniDic 形態素解析（取單詞素重音 aType）
+unidic-lite      # fugashi 用的 UniDic 辭書（BSD）
+pyopenjtalk      # 複合詞重音推算（OpenJTalk，BSD）
+wordfreq         # 多語料聚合詞頻（zipf）
+mecab-python3    # wordfreq 日文斷詞後端
+ipadic           # wordfreq 日文斷詞對齊用辭書

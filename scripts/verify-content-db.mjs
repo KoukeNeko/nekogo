@@ -14,6 +14,8 @@ const MIN_VOCAB = 20000;
 const MIN_KANJI = 2000;
 const MIN_EXAMPLE = 10000;
 const MIN_JLPT = 7000;
+const MIN_PITCH_PCT = 90; // UniDic 單詞素 + pyopenjtalk 複合詞補位（實測 ~95%+）
+const MIN_FREQ_PCT = 95; // wordfreq 近乎全覆蓋（僅極罕用詞無值）
 
 let failureCount = 0;
 const check = (label, passed, detail = '') => {
@@ -37,6 +39,19 @@ const main = () => {
   const jlptCount = count(db, 'SELECT COUNT(*) n FROM vocab WHERE jlpt IS NOT NULL');
   check('JLPT 五級齊全 (N1–N5)', [1, 2, 3, 4, 5].every((l) => jlptLevels.includes(l)), `levels ${jlptLevels.join(',')}`);
   check(`JLPT 標記詞 ≥ ${MIN_JLPT}`, jlptCount >= MIN_JLPT, `${jlptCount}`);
+
+  // 音高（UniDic）+ 詞頻（wordfreq）+ 引入順序（intro_rank）— 由 enrich-pitch-freq.py 後處理填入。
+  const pitchCount = count(db, 'SELECT COUNT(*) n FROM vocab WHERE pitch IS NOT NULL');
+  const freqCount = count(db, 'SELECT COUNT(*) n FROM vocab WHERE freq_rank IS NOT NULL');
+  const pctOf = (n) => (n / vocab) * 100;
+  check(`pitch（UniDic）覆蓋 ≥ ${MIN_PITCH_PCT}%`, pctOf(pitchCount) >= MIN_PITCH_PCT, `${pctOf(pitchCount).toFixed(1)}% (${pitchCount})`);
+  check(`freq_rank（wordfreq）覆蓋 ≥ ${MIN_FREQ_PCT}%`, pctOf(freqCount) >= MIN_FREQ_PCT, `${pctOf(freqCount).toFixed(1)}% (${freqCount})`);
+  const dupRank = count(db, 'SELECT COUNT(*) n FROM (SELECT freq_rank FROM vocab WHERE freq_rank IS NOT NULL GROUP BY freq_rank HAVING COUNT(*) > 1)');
+  check('freq_rank 全域唯一（無重複排名）', dupRank === 0, `重複 ${dupRank}`);
+  const introCount = count(db, 'SELECT COUNT(*) n FROM vocab WHERE intro_rank IS NOT NULL');
+  const dupIntro = count(db, 'SELECT COUNT(*) n FROM (SELECT intro_rank FROM vocab WHERE intro_rank IS NOT NULL GROUP BY intro_rank HAVING COUNT(*) > 1)');
+  check('intro_rank 全覆蓋（每詞皆有引入順序）', introCount === vocab, `${introCount}/${vocab}`);
+  check('intro_rank 全域唯一（無重複排名）', dupIntro === 0, `重複 ${dupIntro}`);
 
   // 外鍵參照完整（node:sqlite 不強制 FK，故手動查孤兒）。
   const orphanVk = count(db, 'SELECT COUNT(*) n FROM vocab_kanji WHERE vocab_id NOT IN (SELECT id FROM vocab)');
@@ -72,11 +87,11 @@ const main = () => {
   check('is_jukugo 旗標正確（全為漢字）', jukugoBad.length === 0, `異常 ${jukugoBad.length}`);
 
   // 抽樣關聯：示範一個詞 join 出漢字與例句。
-  const sample = db.prepare("SELECT id, expression, reading, gloss, pitch, jlpt FROM vocab WHERE expression = '日本語' LIMIT 1").get();
+  const sample = db.prepare("SELECT id, expression, reading, gloss, pitch, freq_rank, jlpt FROM vocab WHERE expression = '日本語' LIMIT 1").get();
   if (sample) {
     const ks = db.prepare('SELECT char FROM vocab_kanji WHERE vocab_id = ?').all(sample.id).map((r) => r.char).join('');
     const ex = db.prepare('SELECT e.jp FROM example e JOIN vocab_example ve ON e.id = ve.example_id WHERE ve.vocab_id = ? LIMIT 1').get(sample.id);
-    console.log(`\nℹ️  關聯抽樣 日本語: pitch=${sample.pitch} jlpt=N${sample.jlpt} 漢字=[${ks}] 例句=「${ex?.jp ?? '—'}」`);
+    console.log(`\nℹ️  關聯抽樣 日本語: pitch=${sample.pitch} freq_rank=${sample.freq_rank} jlpt=N${sample.jlpt} 漢字=[${ks}] 例句=「${ex?.jp ?? '—'}」`);
   }
 
   db.close();

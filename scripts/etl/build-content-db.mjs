@@ -4,7 +4,9 @@
  * 以「單字」為樞紐，把所有開放授權資源用 (表記 + 讀音) 這個 join key 關聯起來：
  *   vocab          ← jmdict-simplified eng-common（~2.2 萬常用詞）+ tanos JLPT 分級
  *   vocab.furigana ← JmdictFurigana
- *   vocab.pitch    ← Kanjium
+ *   vocab.pitch    ← UniDic 單詞素重音（enrich-pitch-freq.py 後處理填入；不再用 Kanjium）
+ *   vocab.freq_rank← wordfreq 純詞頻全域排名（enrich-pitch-freq.py 後處理填入）
+ *   vocab.intro_rank← 新卡引入順序（enrich-pitch-freq.py：freq + 機能詞/單漢字/重複異讀降權）
  *   kanji          ← KANJIDIC2 + KanjiVG（涵蓋 vocab 用到的所有漢字）
  *   example        ← Tanaka Corpus（kuromoji 斷詞產生例句 furigana）
  *   vocab_kanji    ← 詞↔構成漢字（M:N）
@@ -110,17 +112,6 @@ const loadFuriganaIndex = () => {
   const index = new Map();
   for (const entry of JSON.parse(stripBom(readFromCache('JmdictFurigana.json')))) {
     index.set(key(entry.text, entry.reading), entry.furigana);
-  }
-  return index;
-};
-
-const loadAccentIndex = () => {
-  const index = new Map();
-  for (const line of stripBom(readFromCache('accents.txt')).split(/\r?\n/)) {
-    const [expr, reading, accents] = line.split('\t');
-    if (!expr || !reading || !accents) continue;
-    const accent = Number.parseInt(accents.split(',')[0], 10);
-    if (!Number.isNaN(accent)) index.set(key(expr, reading), accent);
   }
   return index;
 };
@@ -263,6 +254,8 @@ CREATE TABLE vocab (
   pos TEXT,
   jlpt INTEGER,
   pitch INTEGER,
+  freq_rank INTEGER,
+  intro_rank INTEGER,
   is_jukugo INTEGER NOT NULL DEFAULT 0,
   is_common INTEGER NOT NULL DEFAULT 1
 );
@@ -304,7 +297,6 @@ const main = async () => {
 
   const { levelByKey, records: jlptRecords } = loadJlptLevels();
   const furiganaIndex = loadFuriganaIndex();
-  const accentIndex = loadAccentIndex();
   const strokesByKanji = loadStrokesByKanji();
   const kanjiMeta = loadKanjiMeta();
 
@@ -336,7 +328,7 @@ const main = async () => {
   db.exec(SCRIPT_PRAGMA());
   db.exec(SCHEMA);
 
-  const stats = { vocab: 0, jlpt: 0, pitch: 0, furigana: 0, jukugo: 0, kanji: 0, example: 0, vkLinks: 0, veLinks: 0 };
+  const stats = { vocab: 0, jlpt: 0, furigana: 0, jukugo: 0, kanji: 0, example: 0, vkLinks: 0, veLinks: 0 };
 
   // --- kanji table：vocab 用到的所有漢字 ∩ 有筆順者 ---
   const neededKanji = new Set(vocab.flatMap((v) => kanjiChars(v.expression)));
@@ -360,8 +352,8 @@ const main = async () => {
 
   // --- example table（去重）+ vocab + 連結 ---
   const insVocab = db.prepare(
-    `INSERT INTO vocab (id, expression, reading, furigana, gloss, pos, jlpt, pitch, is_jukugo, is_common)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+    `INSERT INTO vocab (id, expression, reading, furigana, gloss, pos, jlpt, pitch, freq_rank, intro_rank, is_jukugo, is_common)
+     VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, ?, 1)`,
   );
   const insExample = db.prepare('INSERT INTO example (jp, furigana, en) VALUES (?, ?, ?)');
   const insVk = db.prepare('INSERT OR IGNORE INTO vocab_kanji (vocab_id, char) VALUES (?, ?)');
@@ -375,7 +367,6 @@ const main = async () => {
     seenVocab.add(v.id);
 
     const furigana = furiganaIndex.get(key(v.expression, v.reading)) ?? null;
-    const pitch = accentIndex.get(key(v.expression, v.reading)) ?? null;
     const jlpt = v.jlpt ?? null;
     const chars = kanjiChars(v.expression);
     // 熟語 = 全是漢字的單字（每個字元都是漢字，不含假名/送假名）。
@@ -383,11 +374,10 @@ const main = async () => {
 
     insVocab.run(
       v.id, v.expression, v.reading, furigana ? JSON.stringify(furigana) : null, v.gloss, v.pos || null,
-      jlpt, pitch, isJukugo,
+      jlpt, isJukugo,
     );
     stats.vocab += 1;
     if (jlpt != null) stats.jlpt += 1;
-    if (pitch != null) stats.pitch += 1;
     if (furigana) stats.furigana += 1;
     if (isJukugo) stats.jukugo += 1;
 
@@ -414,7 +404,7 @@ const main = async () => {
   const pct = (n) => `${((n / stats.vocab) * 100).toFixed(1)}%`;
   console.log(`\n寫入 ${OUTPUT_PATH}`);
   console.log(`vocab: ${stats.vocab}（JLPT 標記 ${stats.jlpt} / ${pct(stats.jlpt)}、熟語 ${stats.jukugo}）`);
-  console.log(`  furigana: ${stats.furigana}（${pct(stats.furigana)}）、pitch: ${stats.pitch}（${pct(stats.pitch)}）`);
+  console.log(`  furigana: ${stats.furigana}（${pct(stats.furigana)}）　pitch/freq_rank/intro_rank 由 enrich-pitch-freq.py 填入`);
   console.log(`kanji: ${stats.kanji}　example: ${stats.example}`);
   console.log(`連結 vocab_kanji: ${stats.vkLinks}　vocab_example: ${stats.veLinks}`);
   console.log('\n✅ 內容庫組裝完成');

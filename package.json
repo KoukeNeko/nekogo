@@ -6,6 +6,7 @@
     "@expo-google-fonts/jetbrains-mono": "^0.4.1",
     "@expo-google-fonts/noto-sans-jp": "^0.4.3",
     "@expo/ui": "~56.0.18",
+    "@expo/vector-icons": "^15.0.2",
     "@op-engineering/op-sqlite": "^16.2.2",
     "@react-native-masked-view/masked-view": "0.3.2",
     "expo": "~56.0.12",
@@ -63,7 +64,9 @@
     "extra:verify": "node scripts/verify-vocab-extra.mjs",
     "extra": "npm run extra:download && npm run extra:build && npm run extra:verify",
     "content:download": "npm run seed:download && npm run kanji:download && npm run extra:download && node scripts/etl/download-jmdict-common.mjs",
-    "content:build": "node scripts/etl/build-content-db.mjs",
+    "content:setup": "python3 -m venv scripts/etl/.venv && scripts/etl/.venv/bin/pip install -q -r scripts/etl/requirements.txt",
+    "content:build": "node scripts/etl/build-content-db.mjs && npm run content:enrich",
+    "content:enrich": "scripts/etl/.venv/bin/python scripts/etl/enrich-pitch-freq.py",
     "content:verify": "node scripts/verify-content-db.mjs",
     "content": "npm run content:download && npm run content:build && npm run content:verify",
     "data": "npm run seed && npm run kanji && npm run extra"

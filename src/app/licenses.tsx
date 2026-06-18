@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
 import { Colors, Spacing, Fonts, BORDER_RADIUS } from '../constants/theme';
@@ -8,10 +8,9 @@ import { AppBar } from '../components/ui/AppBar';
 
 export default function LicensesScreen() {
     const router = useRouter();
-    const insets = useSafeAreaInsets();
 
     return (
-        <View style={styles.container}>
+        <SafeAreaView style={styles.container} edges={['top']}>
             <AppBar 
                 leftContent={
                     <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
@@ -28,7 +27,7 @@ export default function LicensesScreen() {
                 }
             />
 
-            <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + 60 }]} showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 
                 <View style={styles.card}>
                     <Text style={styles.sectionTitle}>フォント (Fonts)</Text>
@@ -76,10 +75,18 @@ export default function LicensesScreen() {
 
                     <View style={styles.innerDivider} />
 
-                    <Text style={styles.itemName}>Kanjium</Text>
-                    <Text style={styles.licenseText}>Creative Commons Attribution-Share Alike 4.0</Text>
+                    <Text style={styles.itemName}>UniDic</Text>
+                    <Text style={styles.licenseText}>BSD 3-Clause</Text>
                     <Text style={styles.descriptionText}>
-                        Pitch accent data from the Kanjium project (mifunetoshiro).
+                        Pitch accent (accent type) data from UniDic, by the National Institute for Japanese Language and Linguistics (NINJAL), via fugashi and unidic-lite.
+                    </Text>
+
+                    <View style={styles.innerDivider} />
+
+                    <Text style={styles.itemName}>pyopenjtalk / Open JTalk</Text>
+                    <Text style={styles.licenseText}>Modified BSD License</Text>
+                    <Text style={styles.descriptionText}>
+                        Compound-word pitch accent estimation via pyopenjtalk, built on Open JTalk and the NAIST Japanese Dictionary.
                     </Text>
                 </View>
 
@@ -92,10 +99,18 @@ export default function LicensesScreen() {
                     <Text style={styles.descriptionText}>
                         JLPT N1–N5 vocabulary, readings and meanings from tanos.co.uk (Jonathan Waller, CC BY), packaged by open-anki-jlpt-decks (Jamie Sinclair, MIT).
                     </Text>
+
+                    <View style={styles.innerDivider} />
+
+                    <Text style={styles.itemName}>wordfreq</Text>
+                    <Text style={styles.licenseText}>Apache License 2.0</Text>
+                    <Text style={styles.descriptionText}>
+                        Word frequency ranking by wordfreq (Robyn Speer), aggregated from multiple corpora.
+                    </Text>
                 </View>
 
             </ScrollView>
-        </View>
+        </SafeAreaView>
     );
 }
 

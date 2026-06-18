@@ -131,9 +131,9 @@ export const getDueCards = (newLimit: number = 20, reviewLimit: number = 50, dec
     deckId ? [now, deckId, reviewLimit] : [now, reviewLimit],
   ).rows ?? []) as any[];
 
-  // 2. 新卡（state = 0）
+  // 2. 新卡（state = 0）：依「引入順序」引入（高頻優先，機能詞/單漢字/重複異讀降權）。
   const newRows = (db.executeSync(
-    `${CARD_SELECT} WHERE c.state = 0 ${deckClause} ORDER BY c.due ASC LIMIT ?`,
+    `${CARD_SELECT} WHERE c.state = 0 ${deckClause} ORDER BY v.intro_rank IS NULL, v.intro_rank ASC LIMIT ?`,
     deckId ? [deckId, newLimit] : [newLimit],
   ).rows ?? []) as any[];
 
