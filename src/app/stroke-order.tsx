@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, Volume2, PenTool, EyeOff, Eye } from 'lucide-react-native';
 import * as Speech from 'expo-speech';
@@ -36,6 +36,7 @@ const speakJapanese = (text: string) => {
 
 export default function StrokeOrder() {
     const router = useRouter();
+    const insets = useSafeAreaInsets();
     const { kanji: kanjiParam } = useLocalSearchParams<{ kanji?: string }>();
 
     const kanjiChar = typeof kanjiParam === 'string' && kanjiParam.length > 0 ? [...kanjiParam][0] : DEFAULT_KANJI;
@@ -59,7 +60,7 @@ export default function StrokeOrder() {
     };
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.container}>
             {/* Header */}
             <AppBar
                 leftContent={<BackButton />}
@@ -71,7 +72,7 @@ export default function StrokeOrder() {
                 }
             />
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 60, paddingBottom: insets.bottom + Spacing.four }]}>
 
                 {/* Animated Board & Controls */}
                 <View style={styles.boardArea}>
@@ -166,13 +167,13 @@ export default function StrokeOrder() {
 
                     <View style={styles.listContainer}>
                         {tab === 'words' && words.map((w, idx) => (
-                            <ExampleSentenceCard 
-                                key={`word-${idx}`} 
+                            <ExampleSentenceCard
+                                key={`word-${idx}`}
                                 example={{
                                     jp: w.expression,
                                     en: w.gloss.split(';')[0],
                                     furigana: w.furigana
-                                }} 
+                                }}
                                 onPress={() => router.push(`/review?vocabId=${w.id}`)}
                             />
                         ))}
@@ -181,10 +182,8 @@ export default function StrokeOrder() {
                         ))}
                     </View>
                 </View>
-
-                <View style={{ height: 60 }} />
             </ScrollView>
-        </SafeAreaView>
+        </View>
     );
 }
 
@@ -199,6 +198,7 @@ const styles = StyleSheet.create({
         fontFamily: Fonts?.serif,
     },
     scrollContent: {
+        paddingTop: 24,
         paddingHorizontal: Spacing.four,
         paddingTop: Spacing.two,
     },
@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
         color: Colors.dark.text,
         fontSize: 16,
         fontWeight: '600',
-        fontFamily: Fonts?.sans,
+        fontFamily: Fonts?.mono,
         width: '100%',
         textAlign: 'center',
     },
@@ -271,6 +271,7 @@ const styles = StyleSheet.create({
         borderRadius: 4,
         fontSize: 14,
         fontWeight: 'bold',
+        fontFamily: Fonts?.mono,
         overflow: 'hidden',
     },
     section: {

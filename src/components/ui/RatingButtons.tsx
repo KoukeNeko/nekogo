@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Colors, Spacing, BORDER_RADIUS } from '../../constants/theme';
+import { Colors, Spacing, BORDER_RADIUS, Fonts } from '../../constants/theme';
 import { Rating } from 'ts-fsrs';
 
 interface RatingButtonProps {
@@ -76,6 +76,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#121316',
     },
     intervalText: {
+        fontFamily: Fonts?.mono,
         fontSize: 14,
         fontWeight: 'bold',
         marginBottom: 2,

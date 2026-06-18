@@ -34,20 +34,20 @@ export const Fonts = Platform.select({
     serif: 'SourceHanSerif-Regular',
     serifBold: 'SourceHanSerif-Bold',
     rounded: 'ui-rounded',
-    mono: 'ui-monospace',
+    mono: 'JetBrainsMono-Regular',
   },
   default: {
     sans: 'normal',
     serif: 'SourceHanSerif-Regular',
     serifBold: 'SourceHanSerif-Bold',
     rounded: 'normal',
-    mono: 'monospace',
+    mono: 'JetBrainsMono-Regular',
   },
   web: {
     sans: 'var(--font-display)',
     serif: 'var(--font-serif)',
     rounded: 'var(--font-rounded)',
-    mono: 'var(--font-mono)',
+    mono: 'JetBrainsMono-Regular',
   },
 });
 

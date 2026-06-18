@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.dark.background,
   },
-  scrollContent: {
+  scrollContent: { paddingTop: 24,
     padding: Spacing.three,
   },
   iconButton: {

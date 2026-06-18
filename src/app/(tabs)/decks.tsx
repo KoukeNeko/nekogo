@@ -377,6 +377,7 @@ const styles = StyleSheet.create({
   countText: {
     color: Colors.dark.textSecondary,
     fontSize: 12,
+    fontFamily: Fonts?.mono,
     marginTop: Spacing.two,
   },
   spacer: {
@@ -403,7 +404,7 @@ const styles = StyleSheet.create({
   pendingNumber: {
     fontSize: 32,
     fontWeight: 'bold',
-    fontFamily: Fonts?.sans,
+    fontFamily: Fonts?.mono,
     lineHeight: 36,
   },
   pendingLabel: {

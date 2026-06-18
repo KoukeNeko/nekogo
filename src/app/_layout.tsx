@@ -1,5 +1,6 @@
 import { Stack } from "expo-router";
 import { useFonts } from 'expo-font';
+import { JetBrainsMono_400Regular } from '@expo-google-fonts/jetbrains-mono';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 import { SettingsProvider } from '../context/SettingsContext';
@@ -14,6 +15,7 @@ export default function RootLayout() {
   const [loaded, error] = useFonts({
     'SourceHanSerif-Regular': require('../../assets/fonts/SourceHanSerifJP-Regular.otf'),
     'SourceHanSerif-Bold': require('../../assets/fonts/SourceHanSerifJP-Bold.otf'),
+    'JetBrainsMono-Regular': JetBrainsMono_400Regular,
   });
 
   // DB 初始化需先掛載唯讀內容庫（async 複製），再建主庫資料表與種子。

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Colors, Spacing, BORDER_RADIUS, Fonts } from "../constants/theme";
 import { ChevronLeft } from "lucide-react-native";
@@ -32,6 +32,7 @@ const DummySlider = ({ width = 100, fillPercent = 80, color = Colors.dark.primar
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [furiganaEnabled, setFuriganaEnabled] = useState(true);
   const [autoPlayEnabled, setAutoPlayEnabled] = useState(true);
@@ -90,7 +91,7 @@ export default function SettingsScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <View style={styles.container}>
       <AppBar
         leftContent={
           <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
@@ -107,7 +108,7 @@ export default function SettingsScreen() {
         }
       />
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 60 }]} showsVerticalScrollIndicator={false}>
 
         {/* Section 1: Engine */}
         <View style={styles.sectionHeader}>
@@ -232,7 +233,7 @@ export default function SettingsScreen() {
         </View>
 
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -253,7 +254,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.dark.textSecondary,
   },
-  scrollContent: {
+  scrollContent: { paddingTop: 24,
     padding: Spacing.three,
     paddingBottom: Spacing.five,
   },

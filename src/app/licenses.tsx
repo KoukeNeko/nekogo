@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
 import { Colors, Spacing, Fonts, BORDER_RADIUS } from '../constants/theme';
@@ -8,9 +8,10 @@ import { AppBar } from '../components/ui/AppBar';
 
 export default function LicensesScreen() {
     const router = useRouter();
+    const insets = useSafeAreaInsets();
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.container}>
             <AppBar 
                 leftContent={
                     <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
@@ -27,7 +28,7 @@ export default function LicensesScreen() {
                 }
             />
 
-            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + 60 }]} showsVerticalScrollIndicator={false}>
                 
                 <View style={styles.card}>
                     <Text style={styles.sectionTitle}>フォント (Fonts)</Text>
@@ -94,7 +95,7 @@ export default function LicensesScreen() {
                 </View>
 
             </ScrollView>
-        </SafeAreaView>
+        </View>
     );
 }
 
@@ -111,7 +112,7 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: Colors.dark.text,
     },
-    content: {
+    content: { paddingTop: 24,
         paddingHorizontal: Spacing.three,
         paddingBottom: Spacing.six,
         gap: Spacing.four,

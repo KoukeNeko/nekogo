@@ -1,9 +1,9 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft } from 'lucide-react-native';
-import { Colors, Spacing, BORDER_RADIUS } from '../../constants/theme';
+import { Colors, Spacing, BORDER_RADIUS, Fonts } from '../../constants/theme';
 import { AppBar } from '../../components/ui/AppBar';
 import { getDailyMetrics } from '../../db/repositories/cardRepository';
 import { getAllDecksWithMetrics, Deck } from '../../db/repositories/deckRepository';
@@ -11,6 +11,7 @@ import { getAllDecksWithMetrics, Deck } from '../../db/repositories/deckReposito
 export default function DeckDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [deck, setDeck] = useState<Deck | null>(null);
 
@@ -30,8 +31,8 @@ export default function DeckDetailScreen() {
 
   if (!deck) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <AppBar 
+      <View style={styles.container}>
+        <AppBar
           leftContent={
             <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
               <ChevronLeft size={28} color={Colors.dark.text} />
@@ -39,7 +40,7 @@ export default function DeckDetailScreen() {
           }
           centerContent={<Text style={styles.headerTitle}>Loading...</Text>}
         />
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -47,8 +48,8 @@ export default function DeckDetailScreen() {
   const isCompleted = displayDue === 0;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <AppBar 
+    <View style={styles.container}>
+      <AppBar
         leftContent={
           <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
             <ChevronLeft size={28} color={Colors.dark.text} />
@@ -62,7 +63,10 @@ export default function DeckDetailScreen() {
         }
       />
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 60, paddingBottom: insets.bottom + Spacing.four }]}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.headerArea}>
           {deck.tags && deck.tags.length > 0 && (
             <View style={[styles.tagBadge, { backgroundColor: '#1C2939' }]}>
@@ -95,7 +99,7 @@ export default function DeckDetailScreen() {
           </View>
         </View>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.mainButton, isCompleted && { backgroundColor: '#2E3135' }]}
           onPress={() => {
             if (!isCompleted) {
@@ -109,7 +113,7 @@ export default function DeckDetailScreen() {
           </Text>
         </TouchableOpacity>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -127,6 +131,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   content: {
+    paddingTop: 24,
     paddingHorizontal: Spacing.three,
     paddingTop: Spacing.four,
     paddingBottom: Spacing.six,
@@ -184,6 +189,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: Colors.dark.text,
+    fontFamily: Fonts?.mono,
     marginBottom: 4,
   },
   statLabel: {
@@ -204,6 +210,7 @@ const styles = StyleSheet.create({
   totalNumber: {
     fontSize: 14,
     fontWeight: 'bold',
+    fontFamily: Fonts?.mono,
     color: Colors.dark.text,
   },
   mainButton: {
