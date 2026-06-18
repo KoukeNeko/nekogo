@@ -6,6 +6,7 @@ import { Search, MoreHorizontal, Plus, LayoutGrid, List, Library, Check } from "
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useFocusEffect } from "expo-router";
 import { getAllDecksWithMetrics, Deck } from "../../db/repositories/deckRepository";
+import { AppBar } from "../../components/ui/AppBar";
 import { useCallback } from "react";
 
 export default function Decks() {
@@ -63,35 +64,36 @@ export default function Decks() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Custom Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>デッキ</Text>
-        <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/search')}>
-            <Search size={22} color={Colors.dark.textSecondary} />
-          </TouchableOpacity>
-          <View style={styles.viewToggle}>
-            <TouchableOpacity 
-              style={[styles.toggleBtn, viewMode === 'list' && styles.toggleBtnActive]}
-              onPress={() => setViewMode('list')}
-            >
-              <List size={16} color={viewMode === 'list' ? Colors.dark.text : Colors.dark.textSecondary} />
+      <AppBar 
+        leftContent={<Text style={styles.headerTitle}>デッキ</Text>}
+        rightContent={
+          <View style={styles.headerActions}>
+            <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/search')}>
+              <Search size={22} color={Colors.dark.textSecondary} />
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.toggleBtn, viewMode === 'grid' && styles.toggleBtnActive]}
-              onPress={() => setViewMode('grid')}
-            >
-              <LayoutGrid size={16} color={viewMode === 'grid' ? Colors.dark.text : Colors.dark.textSecondary} />
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.toggleBtn, viewMode === 'bookshelf' && styles.toggleBtnActive]}
-              onPress={() => setViewMode('bookshelf')}
-            >
-              <Library size={16} color={viewMode === 'bookshelf' ? Colors.dark.text : Colors.dark.textSecondary} />
-            </TouchableOpacity>
+            <View style={styles.viewToggle}>
+              <TouchableOpacity 
+                style={[styles.toggleBtn, viewMode === 'list' && styles.toggleBtnActive]}
+                onPress={() => setViewMode('list')}
+              >
+                <List size={16} color={viewMode === 'list' ? Colors.dark.text : Colors.dark.textSecondary} />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.toggleBtn, viewMode === 'grid' && styles.toggleBtnActive]}
+                onPress={() => setViewMode('grid')}
+              >
+                <LayoutGrid size={16} color={viewMode === 'grid' ? Colors.dark.text : Colors.dark.textSecondary} />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.toggleBtn, viewMode === 'bookshelf' && styles.toggleBtnActive]}
+                onPress={() => setViewMode('bookshelf')}
+              >
+                <Library size={16} color={viewMode === 'bookshelf' ? Colors.dark.text : Colors.dark.textSecondary} />
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      </View>
+        }
+      />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {viewMode === 'bookshelf' ? (
@@ -285,8 +287,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Spacing.three,
-    paddingTop: Spacing.three,
+    paddingHorizontal: Spacing.four,
+    paddingTop: Spacing.two,
     paddingBottom: Spacing.two,
   },
   headerTitle: {

@@ -217,7 +217,7 @@ export default function Review() {
   );
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <AppBar 
         leftContent={
           isDictionaryMode ? (
@@ -255,7 +255,7 @@ export default function Review() {
         }
       />
 
-      <View style={[styles.mainArea, { paddingTop: insets.top + 60 }]}>
+      <View style={styles.mainArea}>
         <FlashCard 
           frontContent={renderFront()} 
           backContent={renderBack()} 
@@ -283,7 +283,7 @@ export default function Review() {
           )}
         </LinearGradient>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 

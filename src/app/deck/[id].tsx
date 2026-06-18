@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft } from 'lucide-react-native';
 import { Colors, Spacing, BORDER_RADIUS, Fonts } from '../../constants/theme';
 import { AppBar } from '../../components/ui/AppBar';
@@ -11,7 +11,6 @@ import { getAllDecksWithMetrics, Deck } from '../../db/repositories/deckReposito
 export default function DeckDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
 
   const [deck, setDeck] = useState<Deck | null>(null);
 
@@ -31,7 +30,7 @@ export default function DeckDetailScreen() {
 
   if (!deck) {
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <AppBar
           leftContent={
             <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
@@ -40,7 +39,7 @@ export default function DeckDetailScreen() {
           }
           centerContent={<Text style={styles.headerTitle}>Loading...</Text>}
         />
-      </View>
+      </SafeAreaView>
     );
   }
 
@@ -48,7 +47,7 @@ export default function DeckDetailScreen() {
   const isCompleted = displayDue === 0;
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <AppBar
         leftContent={
           <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
@@ -64,7 +63,7 @@ export default function DeckDetailScreen() {
       />
 
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 60, paddingBottom: insets.bottom + Spacing.four }]}
+        contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.headerArea}>
@@ -113,7 +112,7 @@ export default function DeckDetailScreen() {
           </Text>
         </TouchableOpacity>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 

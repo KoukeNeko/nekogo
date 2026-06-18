@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, Volume2, PenTool, EyeOff, Eye } from 'lucide-react-native';
 import * as Speech from 'expo-speech';
@@ -36,7 +36,6 @@ const speakJapanese = (text: string) => {
 
 export default function StrokeOrder() {
     const router = useRouter();
-    const insets = useSafeAreaInsets();
     const { kanji: kanjiParam } = useLocalSearchParams<{ kanji?: string }>();
 
     const kanjiChar = typeof kanjiParam === 'string' && kanjiParam.length > 0 ? [...kanjiParam][0] : DEFAULT_KANJI;
@@ -60,7 +59,7 @@ export default function StrokeOrder() {
     };
 
     return (
-        <View style={styles.container}>
+        <SafeAreaView style={styles.container} edges={['top']}>
             {/* Header */}
             <AppBar
                 leftContent={<BackButton />}
@@ -72,7 +71,7 @@ export default function StrokeOrder() {
                 }
             />
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 60, paddingBottom: insets.bottom + Spacing.four }]}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
 
                 {/* Animated Board & Controls */}
                 <View style={styles.boardArea}>
@@ -182,8 +181,9 @@ export default function StrokeOrder() {
                         ))}
                     </View>
                 </View>
+                <View style={{ height: 60 }} />
             </ScrollView>
-        </View>
+        </SafeAreaView>
     );
 }
 
