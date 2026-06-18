@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Dimens
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
 import { Search, X } from "lucide-react-native";
-import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { Colors, Spacing, BORDER_RADIUS } from "../constants/theme";
 import { searchVocab, searchKanji, searchDecks, VocabSearchResult, KanjiSearchResult, DeckSearchResult } from "../db/repositories/searchRepository";
@@ -16,7 +15,7 @@ export default function SearchScreen() {
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState<SearchTab>('all');
-  
+
   const [vocabResults, setVocabResults] = useState<VocabSearchResult[]>([]);
   const [kanjiResults, setKanjiResults] = useState<KanjiSearchResult[]>([]);
   const [deckResults, setDeckResults] = useState<DeckSearchResult[]>([]);
@@ -24,9 +23,9 @@ export default function SearchScreen() {
   useEffect(() => {
     const q = query.trim();
     if (q) {
-      setVocabResults(searchVocab(q, 20));
-      setKanjiResults(searchKanji(q, 20));
-      setDecksResults(searchDecks(q, 20));
+      setVocabResults(searchVocab(q, 200));
+      setKanjiResults(searchKanji(q, 200));
+      setDecksResults(searchDecks(q, 200));
     } else {
       setVocabResults([]);
       setKanjiResults([]);
@@ -52,7 +51,7 @@ export default function SearchScreen() {
           deck: 'デッキ'
         };
         return (
-          <TouchableOpacity 
+          <TouchableOpacity
             key={tab}
             style={[styles.tabButton, isActive && styles.tabButtonActive]}
             onPress={() => setActiveTab(tab)}
@@ -72,8 +71,8 @@ export default function SearchScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>単語 ・ {vocabResults.length}件</Text>
         {vocabResults.map(item => (
-          <TouchableOpacity 
-            key={item.id} 
+          <TouchableOpacity
+            key={item.id}
             style={styles.card}
             onPress={() => router.push(`/review?vocabId=${item.id}`)}
           >
@@ -104,8 +103,8 @@ export default function SearchScreen() {
         <Text style={styles.sectionTitle}>漢字 ・ {kanjiResults.length}件</Text>
         <View style={styles.kanjiGrid}>
           {kanjiResults.map(item => (
-            <TouchableOpacity 
-              key={item.char} 
+            <TouchableOpacity
+              key={item.char}
               style={styles.kanjiCard}
               onPress={() => router.push(`/stroke-order?char=${item.char}`)}
             >
@@ -127,8 +126,8 @@ export default function SearchScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>デッキ ・ {deckResults.length}件</Text>
         {deckResults.map(item => (
-          <TouchableOpacity 
-            key={item.id} 
+          <TouchableOpacity
+            key={item.id}
             style={styles.card}
             onPress={() => router.push(`/deck/${item.id}`)}
           >
@@ -150,12 +149,12 @@ export default function SearchScreen() {
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
-      
+
       {/* Results (render first so it goes under absolute header) */}
-      <ScrollView 
-        style={styles.scrollArea} 
+      <ScrollView
+        style={styles.scrollArea}
         contentContainerStyle={{ paddingTop: insets.top + 120, paddingBottom: insets.bottom + Spacing.four }}
-        showsVerticalScrollIndicator={false} 
+        showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
         {(activeTab === 'all' || activeTab === 'vocab') && renderVocabResults()}
@@ -164,7 +163,7 @@ export default function SearchScreen() {
       </ScrollView>
 
       {/* Floating Gradient Header */}
-      <LinearGradient 
+      <LinearGradient
         colors={[Colors.dark.background, Colors.dark.background, `${Colors.dark.background}00`]}
         locations={[0, 0.8, 1]}
         style={[styles.floatingHeader, { paddingTop: insets.top }]}
