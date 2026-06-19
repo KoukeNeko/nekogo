@@ -6,7 +6,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 import { SettingsProvider } from '../context/SettingsContext';
 import { initDB } from '../db/schema';
-import { seedDatabaseIfEmpty } from '../db/seed';
+import { ensureSelectedDeckCards } from '../db/seed';
 import { applyStoredParameters } from '../services/fsrs';
 import * as FsrsNative from '../../modules/fsrs-native'; // Slice 0 工具鏈探針（暫時）
 
@@ -22,7 +22,7 @@ export default function RootLayout() {
     'JetBrainsMono-Regular': JetBrainsMono_400Regular,
   });
 
-  // 主庫建表後，首次啟動向雲端抓卡包成員建立卡片（個人 FSRS 紀錄留本機）。
+  // 主庫建表後，啟動時向雲端抓「目標牌組」（預設範圍）成員增量建卡（個人 FSRS 紀錄留本機）。
   // 失敗（多半是離線或伺服器未啟動）會顯示錯誤＋再試行，而非靜默空白。
   useEffect(() => {
     let cancelled = false;
@@ -32,7 +32,7 @@ export default function RootLayout() {
       try {
         initDB();
         applyStoredParameters(); // 套用本機已訓練的 FSRS 參數（無則用預設）
-        await seedDatabaseIfEmpty();
+        await ensureSelectedDeckCards(); // 不傳參數 → 預設範圍（學習範圍為空時為 5 個 JLPT 包）
         if (!cancelled) setSeedFailed(false);
       } catch (dbError) {
         console.error('❌ 資料庫初始化失敗:', dbError);

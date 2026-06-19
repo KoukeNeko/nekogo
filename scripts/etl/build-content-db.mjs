@@ -43,10 +43,10 @@ const JLPT_DECK_META = [
   { id: 'deck-n2', level: 2, name: 'JLPT N2', description: 'JLPT N2 語彙', tags: ['N2', '語彙'], color: '#5CB3FF' },
   { id: 'deck-n1', level: 1, name: 'JLPT N1', description: 'JLPT N1 語彙', tags: ['N1', '語彙'], color: '#9D72FF' },
 ];
-const MAX_EXAMPLES_PER_VOCAB = 2;
+const MAX_EXAMPLES_PER_VOCAB = 5;
 const MIN_EXAMPLE_LEN = 8;
 const MAX_EXAMPLE_LEN = 45;
-const EXAMPLES_PER_HEADWORD = 6;
+const EXAMPLES_PER_HEADWORD = 8;
 const UTF8_BOM = '﻿';
 const SEP = '\t';
 const KATAKANA_START = 0x30a1;
@@ -169,7 +169,7 @@ const loadKanjiMeta = () => {
  * JLPT 分級：比對「所有(表記×讀音)組合」對上 tanos，取最簡單級別；命中的 tanos key 記入 matchedKeys。
  */
 const loadVocab = (levelByKey, matchedKeys) => {
-  const dict = JSON.parse(stripBom(readFromCache('jmdict-eng-common.json')));
+  const dict = JSON.parse(stripBom(readFromCache('jmdict-eng-full.json')));
   const posTags = dict.tags ?? {};
   const vocab = [];
 
@@ -411,7 +411,9 @@ const main = async () => {
       if (kanjiInDb.has(char)) { insVk.run(v.id, char); stats.vkLinks += 1; }
     }
 
-    const candidates = (exampleIndex.get(v.expression) ?? []).filter((c) => c.jp.includes(v.expression)).slice(0, MAX_EXAMPLES_PER_VOCAB);
+    // B-line 已把活用形對回辭書形 headword，故 exampleIndex.get(v.expression) 的句子必含此詞；
+    // 不再用 jp.includes 過濾表層文字（那會誤殺活用/假名漢字不一致的正確例句）。
+    const candidates = (exampleIndex.get(v.expression) ?? []).slice(0, MAX_EXAMPLES_PER_VOCAB);
     for (const cand of candidates) {
       let exId = exampleIdByJp.get(cand.jp);
       if (exId === undefined) {

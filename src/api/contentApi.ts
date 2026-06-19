@@ -104,6 +104,18 @@ export const fetchDeckVocab = async (deckId: string, limit?: number, offset?: nu
   return data.vocab;
 };
 
+export interface ApiDeckMember {
+  id: string;
+  introRank: number | null;
+}
+
+/**
+ * 卡包成員精簡列（seed 專用）：只取 vocabId + introRank，依 intro_rank 升冪。
+ * 大牌組（如頻率分級包）回傳完整 vocab 太重，故另開此端點。回傳為裸陣列（非包物件）。
+ */
+export const fetchDeckMembers = async (deckId: string): Promise<ApiDeckMember[]> =>
+  fetchJson<ApiDeckMember[]>(`/api/decks/${deckId}/members`);
+
 /** 批次取核心單字（一個複習工作階段一次抓回所需的卡內容）。 */
 export const fetchVocabByIds = async (ids: string[]): Promise<ApiVocab[]> => {
   if (ids.length === 0) return [];

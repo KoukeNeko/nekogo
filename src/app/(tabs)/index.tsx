@@ -7,6 +7,7 @@ import { BookOpen, Layers, FileText, ChevronDown } from "lucide-react-native";
 import Svg, { Circle } from 'react-native-svg';
 import { getDailyMetrics, getStreak, getReviewedTodayCount, getStudyTimeStats } from '../../db/repositories/cardRepository';
 import { getSelectedDecks, setSelectedDecks } from '../../db/repositories/selectedDecksRepository';
+import { ensureSelectedDeckCards } from '../../db/seed';
 import { fetchDecks, ApiDeck } from '../../api/contentApi';
 
 const CircularProgress = ({ progress, size, strokeWidth, color, trackColor, children }: any) => {
@@ -57,6 +58,8 @@ export default function Home() {
   const [modalVisible, setModalVisible] = useState(false);
   const [availableDecks, setAvailableDecks] = useState<ApiDeck[]>([]);
   const [tempSelectedIds, setTempSelectedIds] = useState<string[]>([]);
+  const [activeSelectedIds, setActiveSelectedIds] = useState<string[]>([]);
+  const [seeding, setSeeding] = useState(false);
 
   // 嘗試預載以供按鈕顯示文字
   useEffect(() => {
@@ -82,6 +85,7 @@ export default function Home() {
 
   useFocusEffect(
     useCallback(() => {
+      setActiveSelectedIds(getSelectedDecks());
       loadMetrics();
       return () => {};
     }, [loadMetrics])
@@ -92,10 +96,21 @@ export default function Home() {
     setModalVisible(true);
   };
 
-  const handleConfirmSelection = () => {
+  const handleConfirmSelection = async () => {
     setSelectedDecks(tempSelectedIds);
-    setModalVisible(false);
-    loadMetrics();
+    setActiveSelectedIds(tempSelectedIds);
+    // 對新選牌組增量建卡（傳入選擇 → 範圍感知；空選擇 = 全部，由 seed 落到預設 JLPT 範圍）。
+    // 建卡需連雲端：以 seeding 旗標擋住重複點擊，失敗僅記錄（下次仍可重試）。
+    setSeeding(true);
+    try {
+      await ensureSelectedDeckCards(tempSelectedIds);
+    } catch (e) {
+      console.error('為新選牌組建卡失敗', e);
+    } finally {
+      setSeeding(false);
+      setModalVisible(false);
+      loadMetrics();
+    }
   };
 
   const handleToggleDeck = (id: string) => {
@@ -104,20 +119,15 @@ export default function Home() {
     );
   };
 
-  const selectedDecks = getSelectedDecks();
+  const hasSelection = activeSelectedIds.length > 0;
   let selectorText = "全部";
-  if (selectedDecks.length === 1) {
-    const deck = availableDecks.find(d => d.id === selectedDecks[0]);
-    if (deck) {
-      selectorText = deck.name.replace('JLPT ', '');
-    }
-  } else if (selectedDecks.length > 1) {
-    const firstDeck = availableDecks.find(d => d.id === selectedDecks[0]);
-    if (firstDeck) {
-      selectorText = `${firstDeck.name.replace('JLPT ', '')} +${selectedDecks.length - 1}`;
-    } else {
-      selectorText = `多個範圍`;
-    }
+  
+  if (hasSelection) {
+    const names = activeSelectedIds.map(id => {
+      const d = availableDecks.find(x => x.id === id);
+      return d ? d.name : id;
+    });
+    selectorText = names.join(', ');
   }
 
   const totalDue = metrics.newCards + metrics.learningCards + metrics.reviewCards;
@@ -137,9 +147,18 @@ export default function Home() {
         
         {/* Header Row */}
         <View style={styles.headerRow}>
-          <TouchableOpacity style={styles.selectorChip} onPress={handleOpenModal}>
-            <Text style={styles.selectorChipText}>{selectorText}</Text>
-            <ChevronDown size={16} color={Colors.dark.textSecondary} />
+          <TouchableOpacity 
+            style={[styles.selectorChip, hasSelection && styles.selectorChipActive]} 
+            onPress={handleOpenModal}
+          >
+            <Text 
+              style={[styles.selectorChipText, hasSelection && styles.selectorChipTextActive]}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {selectorText}
+            </Text>
+            <ChevronDown size={16} color={hasSelection ? Colors.dark.primaryOrange : Colors.dark.textSecondary} style={{ flexShrink: 0 }} />
           </TouchableOpacity>
           <View style={styles.streakContainer}>
             <Text style={{ fontSize: 14 }}>🔥</Text>
@@ -299,8 +318,13 @@ export default function Home() {
                 );
               })}
             </ScrollView>
-            <TouchableOpacity style={styles.confirmButton} onPress={handleConfirmSelection}>
-              <Text style={styles.confirmButtonText}>確定</Text>
+            <TouchableOpacity
+              style={[styles.confirmButton, seeding && { opacity: 0.6 }]}
+              onPress={handleConfirmSelection}
+              disabled={seeding}
+              activeOpacity={seeding ? 1 : 0.7}
+            >
+              <Text style={styles.confirmButtonText}>{seeding ? '準備中…' : '確定'}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -331,11 +355,22 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: BORDER_RADIUS.round,
     gap: 4,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    maxWidth: '75%',
+  },
+  selectorChipActive: {
+    backgroundColor: 'rgba(255, 107, 53, 0.1)',
+    borderColor: 'rgba(255, 107, 53, 0.3)',
   },
   selectorChipText: {
     color: Colors.dark.text,
     fontSize: 15,
     fontWeight: 'bold',
+    flexShrink: 1,
+  },
+  selectorChipTextActive: {
+    color: Colors.dark.primaryOrange,
   },
   streakContainer: {
     flexDirection: 'row',

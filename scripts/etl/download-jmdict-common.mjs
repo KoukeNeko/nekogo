@@ -12,7 +12,7 @@ import { gunzipSync } from 'node:zlib';
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const CACHE_DIR = join(SCRIPT_DIR, '.cache');
 const RELEASE_API = 'https://api.github.com/repos/scriptin/jmdict-simplified/releases/latest';
-const ASSET_PATTERN = /^jmdict-eng-common-.*\.json\.tgz$/;
+const ASSET_PATTERN = /^jmdict-eng-\d.*\.json\.tgz$/; // 完整 JMdict（非 common 子集）
 const TAR_HEADER_SIZE = 512;
 const TAR_SIZE_OFFSET = 124;
 const TAR_SIZE_LENGTH = 12;
@@ -45,9 +45,9 @@ const main = async () => {
 
   console.log(`下載 ${asset.name} (${release.tag_name}) …`);
   const json = extractSingleFileFromTar(gunzipSync(await fetchBuffer(asset.browser_download_url)));
-  writeFileSync(join(CACHE_DIR, 'jmdict-eng-common.json'), json);
+  writeFileSync(join(CACHE_DIR, 'jmdict-eng-full.json'), json);
 
-  console.log(`\n✅ 已就緒於 ${CACHE_DIR}/jmdict-eng-common.json`);
+  console.log(`\n✅ 已就緒於 ${CACHE_DIR}/jmdict-eng-full.json`);
 };
 
 main().catch((error) => {
