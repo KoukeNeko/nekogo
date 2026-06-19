@@ -16,6 +16,7 @@ export default function DeckDetailScreen() {
 
   const [deck, setDeck] = useState<Deck | null>(null);
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -51,8 +52,9 @@ export default function DeckDetailScreen() {
   const handlePress = async () => {
     if (isUnsubscribed) {
       try {
+        setProgress(null);
         setLoading(true);
-        await ensureSelectedDeckCards([deck.id]);
+        await ensureSelectedDeckCards([deck.id], (done, total) => setProgress({ done, total }));
         const decks = await getAllDecksWithMetrics();
         const found = decks.find((d) => d.id === deck.id);
         if (found) setDeck(found);
@@ -60,6 +62,7 @@ export default function DeckDetailScreen() {
         console.error('Failed to add deck', e);
       } finally {
         setLoading(false);
+        setProgress(null);
       }
     } else if (!isCompleted) {
       router.push({ pathname: "/review", params: { deckId: deck.id } });
@@ -67,7 +70,13 @@ export default function DeckDetailScreen() {
   };
 
   const getButtonText = () => {
-    if (loading) return 'カードを準備中…';
+    if (loading) {
+      if (progress && progress.total > 0) {
+        const pct = Math.round((progress.done / progress.total) * 100);
+        return `カードを準備中… ${pct}%`;
+      }
+      return 'カードを準備中…';
+    }
     if (isUnsubscribed) return 'この語彙を学習に追加';
     if (isCompleted) return '今日の目標達成！ 🎉';
     return 'このデッキを復習する';
