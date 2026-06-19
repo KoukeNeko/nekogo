@@ -65,6 +65,14 @@ export const initDB = () => {
       );
     `);
 
+    // 小型 key/value（存放本機訓練出的 FSRS 參數 w 等）。
+    db.executeSync(`
+      CREATE TABLE IF NOT EXISTS kv (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      );
+    `);
+
     db.executeSync('CREATE INDEX IF NOT EXISTS idx_cards_due ON cards (due);');
     db.executeSync('CREATE INDEX IF NOT EXISTS idx_cards_deck ON cards (deck_id);');
     db.executeSync('CREATE INDEX IF NOT EXISTS idx_revlog_card ON revlog (card_id);');

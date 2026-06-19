@@ -1,0 +1,2 @@
+# Rust 編譯產物（巨大；iOS/Android 用的庫請見 docs/FSRS_NATIVE_OPTIMIZER.md 重建）
+/target

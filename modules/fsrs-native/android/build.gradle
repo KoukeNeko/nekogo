@@ -1,0 +1,16 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'com.nekogo.fsrsnative'
+version = '1.0.0'
+
+android {
+  namespace "expo.modules.fsrsnative"
+  defaultConfig {
+    versionCode 1
+    versionName '1.0.0'
+  }
+  // src/main/jniLibs/<abi>/libfsrs_mobile.so 由 AGP 自動打包進 APK。
+}

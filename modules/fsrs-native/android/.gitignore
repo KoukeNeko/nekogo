@@ -1,0 +1,2 @@
+# Gradle 建置產物（jniLibs/<abi>/*.so 為來源、仍會被追蹤；build/ 為輸出，忽略）
+/build

@@ -1,0 +1,27 @@
+[package]
+name = "fsrs_mobile"
+version = "0.1.0"
+edition = "2021"
+
+# staticlib：iOS（.a，C ABI）；cdylib：Android（.so，JNI）。
+[lib]
+name = "fsrs_mobile"
+crate-type = ["staticlib", "cdylib"]
+
+[dependencies]
+# fsrs 6.6.1 的 optimizer 為純 ndarray/rayon CPU 實作（burn 僅其 dev-dependency），
+# 故可乾淨跨編到 iOS/Android，無需 GPU/wgpu。
+fsrs = "6.6.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Android 端透過 JNI 呼叫；iOS 走 C ABI 不需要。
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.21"
+
+[profile.release]
+# 訓練為計算密集，優先速度（opt-level 3）；lto + strip 控制體積。
+opt-level = 3
+lto = true
+strip = true
+codegen-units = 1

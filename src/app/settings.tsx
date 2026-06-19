@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Colors, Spacing, BORDER_RADIUS, Fonts } from "../constants/theme";
@@ -8,6 +8,8 @@ import { AppBar } from "../components/ui/AppBar";
 import { BackButton } from "../components/ui/BackButton";
 import { SettingsCard, SettingsRow, SettingsDivider, SettingsSwitchRow } from "../components/ui/SettingsCard";
 import { useSettings, StrokeSpeed } from "../context/SettingsContext";
+import { getReviewLogCount, optimizeParameters } from "../services/fsrsOptimizer";
+import { MIN_REVIEWS_TO_OPTIMIZE } from "../services/fsrsTraining";
 
 const DummySlider = ({ width = 100, fillPercent = 80, color = Colors.dark.primaryOrange }) => {
   return (
@@ -46,6 +48,32 @@ export default function SettingsScreen() {
   const [themeMode, setThemeMode] = useState<'システム' | 'ライト' | 'ダーク'>('ダーク');
 
   const { strokeSpeed, setStrokeSpeed } = useSettings();
+
+  // FSRS 參數最適化（用本機複習歷史訓練）。
+  const [reviewCount, setReviewCount] = useState(0);
+  const [optimizing, setOptimizing] = useState(false);
+  useEffect(() => {
+    try {
+      setReviewCount(getReviewLogCount());
+    } catch (error) {
+      console.error('讀取複習筆數失敗', error);
+    }
+  }, []);
+
+  const handleOptimize = async () => {
+    if (optimizing) return;
+    setOptimizing(true);
+    try {
+      const outcome = await optimizeParameters();
+      setReviewCount(outcome.reviewCount);
+      Alert.alert('パラメータ最適化', outcome.message);
+    } catch (error) {
+      console.error('最適化エラー', error);
+      Alert.alert('パラメータ最適化', '予期せぬエラーが発生しました');
+    } finally {
+      setOptimizing(false);
+    }
+  };
 
   const getSpeedLabel = (speed: StrokeSpeed) => {
     switch(speed) {
@@ -129,9 +157,24 @@ export default function SettingsScreen() {
             {renderSegment(['追加順', 'ランダム'], cardOrder, setCardOrder)}
           </SettingsRow>
           <SettingsDivider />
-          <SettingsRow label="パラメータ最適化" subLabel="12,840件のログで再学習" paddingVertical={12}>
-            <TouchableOpacity style={styles.actionButton}>
-              <Text style={styles.actionButtonText}>実行</Text>
+          <SettingsRow
+            label="パラメータ最適化"
+            subLabel={
+              reviewCount >= MIN_REVIEWS_TO_OPTIMIZE
+                ? `${reviewCount.toLocaleString()}件のログで再学習`
+                : `あと${(MIN_REVIEWS_TO_OPTIMIZE - reviewCount).toLocaleString()}件で利用可能（${reviewCount.toLocaleString()}/${MIN_REVIEWS_TO_OPTIMIZE.toLocaleString()}）`
+            }
+            paddingVertical={12}
+          >
+            <TouchableOpacity
+              style={[
+                styles.actionButton,
+                (optimizing || reviewCount < MIN_REVIEWS_TO_OPTIMIZE) && { opacity: 0.4 },
+              ]}
+              onPress={handleOptimize}
+              disabled={optimizing || reviewCount < MIN_REVIEWS_TO_OPTIMIZE}
+            >
+              <Text style={styles.actionButtonText}>{optimizing ? '実行中…' : '実行'}</Text>
             </TouchableOpacity>
           </SettingsRow>
         </SettingsCard>

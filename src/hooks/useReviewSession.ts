@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { Card, Rating, processAnswer, formatInterval, f } from '../services/fsrs';
+import { Card, Rating, processAnswer, formatInterval, previewSchedule } from '../services/fsrs';
 import { getDueCards, updateCardState } from '../db/repositories/cardRepository';
 import { fetchVocabDetail } from '../api/contentApi';
 
@@ -114,7 +114,7 @@ export const useReviewSession = (deckId?: string, enabled: boolean = true) => {
     if (!currentItem) return null;
     
     const now = new Date();
-    const schedulingCards = f.repeat(currentItem.fsrsCard, now);
+    const schedulingCards = previewSchedule(currentItem.fsrsCard, now);
     
     return {
       again: formatInterval((schedulingCards as any)[Rating.Again].card.due, now),

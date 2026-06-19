@@ -7,6 +7,8 @@ import { useEffect, useState } from 'react';
 import { SettingsProvider } from '../context/SettingsContext';
 import { initDB } from '../db/schema';
 import { seedDatabaseIfEmpty } from '../db/seed';
+import { applyStoredParameters } from '../services/fsrs';
+import * as FsrsNative from '../../modules/fsrs-native'; // Slice 0 工具鏈探針（暫時）
 
 SplashScreen.preventAutoHideAsync();
 
@@ -24,9 +26,12 @@ export default function RootLayout() {
   // 失敗（多半是離線或伺服器未啟動）會顯示錯誤＋再試行，而非靜默空白。
   useEffect(() => {
     let cancelled = false;
+    // Slice 0：驗證 fsrs-rs 原生橋接（dev build 應印 42；Expo Go 為 null）。
+    console.log('[FsrsNative] available =', FsrsNative.isAvailable(), '| ping =', FsrsNative.ping());
     (async () => {
       try {
         initDB();
+        applyStoredParameters(); // 套用本機已訓練的 FSRS 參數（無則用預設）
         await seedDatabaseIfEmpty();
         if (!cancelled) setSeedFailed(false);
       } catch (dbError) {

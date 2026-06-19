@@ -1,0 +1,4 @@
+module FsrsMobile {
+    header "fsrs_mobile.h"
+    export *
+}
