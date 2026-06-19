@@ -1,5 +1,5 @@
 import { db } from '../schema';
-import { getStreak } from './cardRepository';
+import { getStreak, getStudyTimeStats } from './cardRepository';
 
 const DAY_MS = 86400000;
 const GRID_WEEKS = 12;
@@ -14,6 +14,11 @@ export interface Stats {
   next7Total: number;
   grid: number[][]; // 7 列(星期) × 12 欄(週)，值為強度 0-3
   maturity: { newC: number; learnC: number; youngC: number; matureC: number };
+  studyTodayMs: number; // 今日學習總時長
+  avgPerCardMs: number; // 整體每張平均耗時
+  perLevel: { level: number; total: number; studied: number }[]; // 各 JLPT 級進度（N5→N1）
+  goalTotal: number; // 記憶目標 = 牌組總卡數
+  goalDone: number; // 記憶完成 = 熟成卡數
 }
 
 const startOfTodayMs = (): number => {
@@ -76,6 +81,23 @@ export const getStats = (): Stats => {
      FROM cards`,
   ).rows[0] as any;
 
+  // 學習時間（今日總計 + 每張平均）
+  const study = getStudyTimeStats();
+
+  // 各 JLPT 級進度：cards.deck_id 形如 deck-n5；studied = 已開始學(state>0)。
+  const levelRows = (db.executeSync(
+    `SELECT deck_id, COUNT(*) AS total, SUM(CASE WHEN state > 0 THEN 1 ELSE 0 END) AS studied
+     FROM cards GROUP BY deck_id`,
+  ).rows ?? []) as any[];
+  const perLevel = levelRows
+    .map((r) => ({ level: Number(String(r.deck_id).replace('deck-n', '')), total: r.total || 0, studied: r.studied || 0 }))
+    .filter((x) => x.level >= 1 && x.level <= 5)
+    .sort((a, b) => b.level - a.level); // N5 → N1
+
+  // 記憶目標 vs 完成
+  const goalTotal = (db.executeSync('SELECT COUNT(*) AS c FROM cards').rows[0] as any)?.c || 0;
+  const goalDone = m?.matureC || 0;
+
   return {
     streak: getStreak(),
     reviewsToday,
@@ -84,5 +106,10 @@ export const getStats = (): Stats => {
     next7Total,
     grid,
     maturity: { newC: m?.newC || 0, learnC: m?.learnC || 0, youngC: m?.youngC || 0, matureC: m?.matureC || 0 },
+    studyTodayMs: study.todayMs,
+    avgPerCardMs: study.avgPerCardMs,
+    perLevel,
+    goalTotal,
+    goalDone,
   };
 };

@@ -34,17 +34,21 @@ const toVocabItemFromApi = (vocab: ApiVocab, fsrsCard: Card): VocabItem => ({
 /** 每日新卡上限：當天引入滿這麼多張後，不再給新卡（避免無限批次、進度才會「停得住」）。 */
 export const DAILY_NEW_LIMIT = 20;
 
-// 今天引入的新卡數 = revlog 中每張卡「最早一筆複習」落在今天的卡片數。
+// 今天「真正開始學」的新卡數：以每張卡「最早一筆複習」為準，落在今天、
+// 且首評不是 Easy(=4) 才算（按「簡単/我已經會」只是分流掉，不佔當日新卡額度）。
+const RATING_EASY = 4;
 const countNewIntroducedToday = (deckId?: string): number => {
   const deckJoin = deckId ? 'JOIN cards c ON c.id = r.card_id' : '';
   const deckWhere = deckId ? 'WHERE c.deck_id = ?' : '';
   const row = db.executeSync(
     `SELECT COUNT(*) AS c FROM (
-       SELECT r.card_id, MIN(r.review_time) AS first_t
+       SELECT r.rating, r.review_time,
+              ROW_NUMBER() OVER (PARTITION BY r.card_id ORDER BY r.review_time ASC) AS rn
        FROM revlog r ${deckJoin} ${deckWhere}
-       GROUP BY r.card_id
      ) t
-     WHERE date(t.first_t / 1000, 'unixepoch', 'localtime') = date('now', 'localtime')`,
+     WHERE t.rn = 1
+       AND date(t.review_time / 1000, 'unixepoch', 'localtime') = date('now', 'localtime')
+       AND t.rating <> ${RATING_EASY}`,
     deckId ? [deckId] : [],
   ).rows?.[0] as { c?: number } | undefined;
   return row?.c ?? 0;
@@ -56,13 +60,13 @@ export const getDailyMetrics = (deckId?: string) => {
   const withDeck = (params: any[]) => (deckId ? [...params, deckId] : params);
 
   const availableNew =
-    (db.executeSync(`SELECT COUNT(*) AS c FROM cards WHERE state = 0 ${deckClause}`, withDeck([])).rows[0] as any)?.c || 0;
+    (db.executeSync(`SELECT COUNT(*) AS c FROM cards WHERE state = 0 AND suspended = 0 ${deckClause}`, withDeck([])).rows[0] as any)?.c || 0;
   // 新規 = 今日尚可引入的新卡（每日上限 − 今日已引入），且不超過實際可用數。
   const newCards = Math.min(availableNew, Math.max(0, DAILY_NEW_LIMIT - countNewIntroducedToday(deckId)));
   const learningCards =
-    (db.executeSync(`SELECT COUNT(*) AS c FROM cards WHERE (state = 1 OR state = 3) AND due <= ? ${deckClause}`, withDeck([now])).rows[0] as any)?.c || 0;
+    (db.executeSync(`SELECT COUNT(*) AS c FROM cards WHERE (state = 1 OR state = 3) AND suspended = 0 AND due <= ? ${deckClause}`, withDeck([now])).rows[0] as any)?.c || 0;
   const reviewCards =
-    (db.executeSync(`SELECT COUNT(*) AS c FROM cards WHERE state = 2 AND due <= ? ${deckClause}`, withDeck([now])).rows[0] as any)?.c || 0;
+    (db.executeSync(`SELECT COUNT(*) AS c FROM cards WHERE state = 2 AND suspended = 0 AND due <= ? ${deckClause}`, withDeck([now])).rows[0] as any)?.c || 0;
 
   return { newCards, learningCards, reviewCards };
 };
@@ -103,7 +107,7 @@ export const getDueCards = async (
 
   // 1. 複習/學習中卡（state > 0 且到期）— 純本機，依到期排序。
   const reviewRows = (db.executeSync(
-    `SELECT c.* FROM cards c WHERE c.state > 0 AND c.due <= ? ${deckClause} ORDER BY c.due ASC LIMIT ?`,
+    `SELECT c.* FROM cards c WHERE c.state > 0 AND c.suspended = 0 AND c.due <= ? ${deckClause} ORDER BY c.due ASC LIMIT ?`,
     deckId ? [now, deckId, reviewLimit] : [now, reviewLimit],
   ).rows ?? []) as any[];
 
@@ -113,7 +117,7 @@ export const getDueCards = async (
     remainingNew > 0
       ? ((db.executeSync(
           `SELECT c.* FROM cards c
-           WHERE c.state = 0 ${deckClause} ORDER BY c.intro_rank IS NULL, c.intro_rank ASC LIMIT ?`,
+           WHERE c.state = 0 AND c.suspended = 0 ${deckClause} ORDER BY c.intro_rank IS NULL, c.intro_rank ASC LIMIT ?`,
           deckId ? [deckId, remainingNew] : [remainingNew],
         ).rows ?? []) as any[])
       : [];

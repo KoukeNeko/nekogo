@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
-import { X, Volume2 } from "lucide-react-native";
+import { X, Volume2, Bookmark, EyeOff } from "lucide-react-native";
 import Svg, { Line, Circle } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Speech from "expo-speech";
@@ -18,6 +18,7 @@ import { BackButton } from "../components/ui/BackButton";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useReviewSession, VocabItem } from "../hooks/useReviewSession";
 import { getVocabById } from "../db/repositories/cardRepository";
+import { getCardFlags, setBookmarked, setSuspended } from "../db/repositories/collectionsRepository";
 import { ActivityIndicator } from "react-native";
 import { PitchAccent } from "../components/ui/PitchAccent";
 
@@ -48,6 +49,9 @@ export default function Review() {
   const [dictLoading, setDictLoading] = useState(isDictionaryMode);
   const [dictError, setDictError] = useState(false);
   const [dictRetry, setDictRetry] = useState(0);
+
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [isSuspended, setIsSuspended] = useState(false);
 
   useEffect(() => {
     if (!isDictionaryMode) return;
@@ -82,6 +86,28 @@ export default function Review() {
   const upcomingIntervals = session.upcomingIntervals;
   const handleRate = session.handleRate;
   const resetSession = session.resetSession;
+
+  useEffect(() => {
+    if (currentItem?.id) {
+      const flags = getCardFlags(currentItem.id);
+      setIsBookmarked(flags.bookmarked);
+      setIsSuspended(flags.suspended);
+    }
+  }, [currentItem?.id]);
+
+  const handleToggleBookmark = () => {
+    if (!currentItem?.id) return;
+    const next = !isBookmarked;
+    setIsBookmarked(next);
+    setBookmarked(currentItem.id, next);
+  };
+
+  const handleToggleSuspend = () => {
+    if (!currentItem?.id) return;
+    const next = !isSuspended;
+    setIsSuspended(next);
+    setSuspended(currentItem.id, next);
+  };
 
   // 重試：字典模式重新查詢，複習模式重載工作階段。
   const handleRetry = () => {
@@ -173,6 +199,14 @@ export default function Review() {
 
   const renderFront = () => (
     <View style={styles.frontContent}>
+      <View style={styles.cardFlagsContainer}>
+        <TouchableOpacity style={[styles.flagButton, isBookmarked && styles.flagActive]} onPress={handleToggleBookmark}>
+          <Bookmark size={22} color={isBookmarked ? Colors.dark.primaryOrange : Colors.dark.textSecondary} />
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.flagButton, isSuspended && styles.flagActive]} onPress={handleToggleSuspend}>
+          <EyeOff size={22} color={isSuspended ? '#FF4D4D' : Colors.dark.textSecondary} />
+        </TouchableOpacity>
+      </View>
       <Text style={styles.categoryLabel}>{getDeckLabel()}</Text>
       <View style={styles.wordContainer}>
         <FuriganaText chunks={displayChunks} fontSize={56} />
@@ -189,6 +223,14 @@ export default function Review() {
       showsVerticalScrollIndicator={false} 
       contentContainerStyle={{ paddingBottom: isDictionaryMode ? (insets.bottom + Spacing.four) : (140 + insets.bottom) }}
     >
+      <View style={styles.cardFlagsContainer}>
+        <TouchableOpacity style={[styles.flagButton, isBookmarked && styles.flagActive]} onPress={handleToggleBookmark}>
+          <Bookmark size={22} color={isBookmarked ? Colors.dark.primaryOrange : Colors.dark.textSecondary} />
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.flagButton, isSuspended && styles.flagActive]} onPress={handleToggleSuspend}>
+          <EyeOff size={22} color={isSuspended ? '#FF4D4D' : Colors.dark.textSecondary} />
+        </TouchableOpacity>
+      </View>
       {/* Top Word Area */}
       <View style={styles.backTopArea}>
         <Text style={[styles.categoryLabel, { marginBottom: Spacing.two }]}>{getDeckLabel()}</Text>
@@ -603,5 +645,23 @@ const styles = StyleSheet.create({
   kanjiMeaningText: {
     color: Colors.dark.text,
     fontSize: 14,
+  },
+  cardFlagsContainer: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    flexDirection: 'row',
+    gap: Spacing.one,
+    zIndex: 10,
+  },
+  flagButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  flagActive: {
+    backgroundColor: '#1C1D22',
   }
 });

@@ -30,6 +30,8 @@ export const initDB = () => {
         vocab_id TEXT NOT NULL,
         deck_id TEXT NOT NULL,
         intro_rank INTEGER,
+        bookmarked INTEGER NOT NULL DEFAULT 0,
+        suspended INTEGER NOT NULL DEFAULT 0,
         due INTEGER NOT NULL,
         stability REAL NOT NULL,
         difficulty REAL NOT NULL,
@@ -46,6 +48,13 @@ export const initDB = () => {
     const cardColsNow = (db.executeSync('PRAGMA table_info(cards)').rows ?? []) as any[];
     if (!cardColsNow.some((col) => col.name === 'intro_rank')) {
       db.executeSync('ALTER TABLE cards ADD COLUMN intro_rank INTEGER');
+    }
+    // 智慧收藏旗標：書籤 / 隱藏（隱藏者由 getDueCards 排除）。
+    if (!cardColsNow.some((col) => col.name === 'bookmarked')) {
+      db.executeSync('ALTER TABLE cards ADD COLUMN bookmarked INTEGER NOT NULL DEFAULT 0');
+    }
+    if (!cardColsNow.some((col) => col.name === 'suspended')) {
+      db.executeSync('ALTER TABLE cards ADD COLUMN suspended INTEGER NOT NULL DEFAULT 0');
     }
 
     // 複習紀錄（FSRS 個人化訓練原料；研究 §C.3 建議從第一天完整記錄）。

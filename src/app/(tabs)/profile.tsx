@@ -1,15 +1,27 @@
-import React from "react";
+import React, { useState, useCallback } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Colors, Spacing, BORDER_RADIUS, Fonts } from "../../constants/theme";
 import { AppBar } from "../../components/ui/AppBar";
 import { SettingsCard, SettingsRow, SettingsDivider } from "../../components/ui/SettingsCard";
-import { Settings, ChevronRight, Check, Trophy, BarChart2, HelpCircle, MessageSquare } from "lucide-react-native";
-import { useRouter } from "expo-router";
+import { Settings, ChevronRight, Check, History, Bookmark, EyeOff, AlertTriangle, Frown } from "lucide-react-native";
+import { useRouter, useFocusEffect } from "expo-router";
 import { LinearGradient } from 'expo-linear-gradient';
+import { getCollectionCounts } from "../../db/repositories/collectionsRepository";
 
 export default function Profile() {
   const router = useRouter();
+  const [counts, setCounts] = useState({ history: 0, bookmark: 0, suspended: 0, leech: 0, difficult: 0 });
+
+  useFocusEffect(
+    useCallback(() => {
+      try {
+        setCounts(getCollectionCounts());
+      } catch (e) {
+        console.error('Failed to load collection counts', e);
+      }
+    }, [])
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -95,6 +107,49 @@ export default function Profile() {
             ))}
           </View>
         </View>
+
+        {/* Collections Card */}
+        <SettingsCard style={{ marginBottom: Spacing.three }}>
+          <SettingsRow
+            icon={<History size={20} color={Colors.dark.textSecondary} />}
+            label="学習履歴"
+            valueText={counts.history.toString()}
+            showChevron={true}
+            onPress={() => router.push('/collection/history')}
+          />
+          <SettingsDivider />
+          <SettingsRow
+            icon={<Bookmark size={20} color={Colors.dark.textSecondary} />}
+            label="ブックマーク"
+            valueText={counts.bookmark.toString()}
+            showChevron={true}
+            onPress={() => router.push('/collection/bookmark')}
+          />
+          <SettingsDivider />
+          <SettingsRow
+            icon={<EyeOff size={20} color={Colors.dark.textSecondary} />}
+            label="非表示"
+            valueText={counts.suspended.toString()}
+            showChevron={true}
+            onPress={() => router.push('/collection/suspended')}
+          />
+          <SettingsDivider />
+          <SettingsRow
+            icon={<AlertTriangle size={20} color={Colors.dark.textSecondary} />}
+            label="覚えにくい単語"
+            valueText={counts.leech.toString()}
+            showChevron={true}
+            onPress={() => router.push('/collection/leech')}
+          />
+          <SettingsDivider />
+          <SettingsRow
+            icon={<Frown size={20} color={Colors.dark.textSecondary} />}
+            label="難しい単語"
+            valueText={counts.difficult.toString()}
+            showChevron={true}
+            onPress={() => router.push('/collection/difficult')}
+          />
+        </SettingsCard>
 
         {/* Upgrade Card */}
         <TouchableOpacity>

@@ -5,14 +5,17 @@ import { Colors, Spacing, BORDER_RADIUS, Fonts } from "../../constants/theme";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppBar } from "../../components/ui/AppBar";
 import { getStats, Stats as StatsData } from "../../db/repositories/statsRepository";
+import { getStudyTimeStats } from "../../db/repositories/cardRepository";
 
 export default function Stats() {
   const [stats, setStats] = useState<StatsData | null>(null);
+  const [studyTimeStats, setStudyTimeStats] = useState({ todayMs: 0, avgPerCardMs: 0, todayReviews: 0 });
 
   useFocusEffect(
     useCallback(() => {
       try {
         setStats(getStats());
+        setStudyTimeStats(getStudyTimeStats());
       } catch (e) {
         console.error('Failed to load stats', e);
       }
@@ -24,6 +27,14 @@ export default function Stats() {
   const contributionGrid = stats?.grid ?? Array.from({ length: 7 }, () => new Array(12).fill(0));
   const mat = stats?.maturity ?? { newC: 0, learnC: 0, youngC: 0, matureC: 0 };
   const retentionText = stats?.retention != null ? `${Math.round(stats.retention * 100)}%` : '—';
+
+  const studyMinutes = Math.floor(studyTimeStats.todayMs / 60000);
+  const avgSeconds = (studyTimeStats.avgPerCardMs / 1000).toFixed(1);
+
+  const perLevel = stats?.perLevel ?? [];
+  const goalTotal = stats?.goalTotal ?? 0;
+  const goalDone = stats?.goalDone ?? 0;
+  const goalPct = goalTotal > 0 ? Math.round((goalDone / goalTotal) * 100) : 0;
 
   const getGridColor = (level: number) => {
     switch (level) {
@@ -56,6 +67,50 @@ export default function Stats() {
           <View style={styles.summaryCard}>
             <Text style={[styles.summaryValue, { color: '#66D283' }]}>{retentionText}</Text>
             <Text style={styles.summaryLabel}>定着率</Text>
+          </View>
+        </View>
+
+        <View style={styles.summaryRow}>
+          <View style={styles.summaryCard}>
+            <Text style={[styles.summaryValue, { color: Colors.dark.primaryOrange }]}>{studyMinutes}m</Text>
+            <Text style={styles.summaryLabel}>今日の学習時間</Text>
+          </View>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryValue}>{avgSeconds}s</Text>
+            <Text style={styles.summaryLabel}>1枚あたり平均</Text>
+          </View>
+        </View>
+
+        {/* Memory Goal vs Done */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>記憶目標</Text>
+            <Text style={styles.sectionSubtitle}>{goalDone} / {goalTotal} ・ {goalPct}%</Text>
+          </View>
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${goalPct}%` }]} />
+          </View>
+          <Text style={[styles.legendText, { marginTop: Spacing.two }]}>
+            熟成 {goalDone} 語 / 全 {goalTotal} 語
+          </Text>
+        </View>
+
+        {/* JLPT Progress per Level */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>JLPT 各級の進捗</Text>
+          <View style={{ marginTop: Spacing.three, gap: Spacing.three }}>
+            {perLevel.map((lv) => {
+              const pct = lv.total > 0 ? Math.round((lv.studied / lv.total) * 100) : 0;
+              return (
+                <View key={lv.level} style={styles.levelRow}>
+                  <Text style={styles.levelLabel}>N{lv.level}</Text>
+                  <View style={styles.levelTrack}>
+                    <View style={[styles.levelFill, { width: `${pct}%` }]} />
+                  </View>
+                  <Text style={styles.levelCount}>{lv.studied}/{lv.total}</Text>
+                </View>
+              );
+            })}
           </View>
         </View>
 
@@ -268,5 +323,47 @@ const styles = StyleSheet.create({
   },
   stackedSegment: {
     height: '100%',
-  }
+  },
+  // Goal progress
+  progressTrack: {
+    height: 8,
+    backgroundColor: '#2E3135',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#66D283',
+    borderRadius: 4,
+  },
+  // JLPT level rows
+  levelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+  },
+  levelLabel: {
+    color: Colors.dark.text,
+    fontSize: 13,
+    fontWeight: 'bold',
+    width: 28,
+  },
+  levelTrack: {
+    flex: 1,
+    height: 8,
+    backgroundColor: '#2E3135',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  levelFill: {
+    height: '100%',
+    backgroundColor: Colors.dark.primaryOrange,
+    borderRadius: 4,
+  },
+  levelCount: {
+    color: Colors.dark.textSecondary,
+    fontSize: 11,
+    width: 56,
+    textAlign: 'right',
+  },
 });
