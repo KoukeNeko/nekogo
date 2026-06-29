@@ -1,14 +1,60 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Platform } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Platform, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FontAwesome5, FontAwesome } from '@expo/vector-icons';
 import { Mail } from 'lucide-react-native';
 import { Colors, Fonts } from '../constants/theme';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { useAuth } from '../context/AuthContext';
+// expo-apple-authentication 不在此靜態 import：改在 authEnabled 時才延遲 require，
+// 讓未含此原生模組的 build 也能進入登入頁而不崩潰。
 
 const { width, height } = Dimensions.get('window');
 
 export default function LoginScreen() {
+  const router = useRouter();
+  const { signInWithApple, signInWithGoogle, authEnabled } = useAuth();
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // 原生 Apple 按鈕模組：僅在登入啟用且為 iOS 時延遲載入；載入成功才顯示原生按鈕。
+  const [appleAuth, setAppleAuth] = useState<typeof import('expo-apple-authentication') | null>(null);
+
+  useEffect(() => {
+    if (!authEnabled || Platform.OS !== 'ios') return;
+    let cancelled = false;
+    try {
+      const mod = require('expo-apple-authentication') as typeof import('expo-apple-authentication');
+      mod
+        .isAvailableAsync()
+        .then((available) => {
+          if (!cancelled && available) setAppleAuth(mod);
+        })
+        .catch(() => {});
+    } catch (error) {
+      // 未含原生模組的 build（authEnabled 但尚未重建）：略過原生按鈕，不影響其他登入方式。
+      console.warn('Apple 登入模組載入失敗（需重建含原生模組的版本）:', error);
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [authEnabled]);
+
+  // 共用登入流程：成功回上一頁（profile）；取消則留在本頁；失敗顯示訊息。
+  const handleSignIn = (signIn: () => Promise<boolean>) => async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    setErrorMessage(null);
+    try {
+      const signedIn = await signIn();
+      if (signedIn) router.back();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'サインインに失敗しました');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       
@@ -48,17 +94,19 @@ export default function LoginScreen() {
         <View style={styles.spacer} />
 
         {/* Actions Section */}
-        <View style={styles.actions}>
-          {/* Apple Button */}
-          <TouchableOpacity style={[styles.button, styles.appleButton]} activeOpacity={0.8}>
-            <View style={styles.buttonIcon}>
-              <FontAwesome5 name="apple" size={22} color="#000" />
-            </View>
-            <Text style={[styles.buttonText, styles.appleButtonText]}>Apple でサインイン</Text>
-          </TouchableOpacity>
+        <View style={styles.actions} pointerEvents={submitting ? 'none' : 'auto'}>
+          {appleAuth && (
+            <appleAuth.AppleAuthenticationButton
+              buttonType={appleAuth.AppleAuthenticationButtonType.SIGN_IN}
+              buttonStyle={appleAuth.AppleAuthenticationButtonStyle.WHITE}
+              cornerRadius={16}
+              style={{ height: 56, width: '100%' }}
+              onPress={handleSignIn(signInWithApple)}
+            />
+          )}
 
           {/* Google Button */}
-          <TouchableOpacity style={[styles.button, styles.googleButton]} activeOpacity={0.8}>
+          <TouchableOpacity style={[styles.button, styles.googleButton, submitting && { opacity: 0.6 }]} activeOpacity={0.8} onPress={handleSignIn(signInWithGoogle)} disabled={submitting}>
             <View style={styles.buttonIcon}>
               <FontAwesome name="google" size={20} color="#EA4335" />
             </View>
@@ -73,12 +121,26 @@ export default function LoginScreen() {
           </View>
 
           {/* Email Button */}
-          <TouchableOpacity style={[styles.button, styles.emailButton]} activeOpacity={0.8}>
+          <TouchableOpacity style={[styles.button, styles.emailButton, { opacity: 0.5 }]} activeOpacity={1} disabled={true}>
             <View style={styles.buttonIcon}>
               <Mail size={18} color="#FFF" />
             </View>
             <Text style={[styles.buttonText, styles.emailButtonText]}>メールで続ける</Text>
           </TouchableOpacity>
+
+          {/* Error Message */}
+          {errorMessage && (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{errorMessage}</Text>
+            </View>
+          )}
+
+          {/* Loading Indicator */}
+          {submitting && (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={Colors.dark.primaryOrange} />
+            </View>
+          )}
 
           {/* Terms Text */}
           <Text style={styles.termsText}>
@@ -248,5 +310,24 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 12,
     lineHeight: 18,
+  },
+  errorContainer: {
+    backgroundColor: 'rgba(255, 107, 107, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 107, 0.3)',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginTop: 4,
+  },
+  errorText: {
+    color: '#FF6B6B',
+    fontSize: 13,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    marginTop: 8,
   },
 });

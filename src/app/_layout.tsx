@@ -5,6 +5,7 @@ import { JetBrainsMono_400Regular } from '@expo-google-fonts/jetbrains-mono';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 import { SettingsProvider } from '../context/SettingsContext';
+import { AuthProvider } from '../context/AuthContext';
 import { initDB } from '../db/schema';
 import { ensureSelectedDeckCards } from '../db/seed';
 import { applyStoredParameters } from '../services/fsrs';
@@ -74,12 +75,14 @@ export default function RootLayout() {
   }
 
   return (
-    <SettingsProvider>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="review" />
-        <Stack.Screen name="licenses" />
-      </Stack>
-    </SettingsProvider>
+    <AuthProvider>
+      <SettingsProvider>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="review" />
+          <Stack.Screen name="licenses" />
+        </Stack>
+      </SettingsProvider>
+    </AuthProvider>
   );
 }
