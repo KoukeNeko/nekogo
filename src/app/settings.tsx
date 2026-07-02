@@ -77,7 +77,7 @@ export default function SettingsScreen() {
   };
 
   const getSpeedLabel = (speed: StrokeSpeed) => {
-    switch(speed) {
+    switch (speed) {
       case StrokeSpeed.Slow: return '遅い';
       case StrokeSpeed.Normal: return '標準';
       case StrokeSpeed.Fast: return '速い';
@@ -85,7 +85,7 @@ export default function SettingsScreen() {
   };
 
   const getSpeedValueFromLabel = (label: string): StrokeSpeed => {
-    switch(label) {
+    switch (label) {
       case '遅い': return StrokeSpeed.Slow;
       case '標準': return StrokeSpeed.Normal;
       case '速い': return StrokeSpeed.Fast;
@@ -248,22 +248,22 @@ export default function SettingsScreen() {
         {/* Section 6: About / Legal */}
         <Text style={styles.sectionHeaderLabel}>情報</Text>
         <SettingsCard>
-          <SettingsRow 
-            label="ライセンス (Licenses)" 
-            showChevron 
-            onPress={() => router.push('/licenses')} 
+          <SettingsRow
+            label="ライセンス"
+            showChevron
+            onPress={() => router.push('/licenses')}
           />
           <SettingsDivider />
-          <SettingsRow 
-            label="オープンソース (Open Source)" 
-            showChevron 
-            onPress={() => router.push('/open-source')} 
+          <SettingsRow
+            label="オープンソース"
+            showChevron
+            onPress={() => router.push('/open-source')}
           />
           <SettingsDivider />
-          <SettingsRow 
-            label="コントリビューター (Contributors)" 
-            showChevron 
-            onPress={() => router.push('/contributors')} 
+          <SettingsRow
+            label="コントリビューター"
+            showChevron
+            onPress={() => router.push('/contributors')}
           />
         </SettingsCard>
 
@@ -295,7 +295,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.dark.textSecondary,
   },
-  scrollContent: { paddingTop: 24,
+  scrollContent: {
+    paddingTop: 24,
     padding: Spacing.three,
     paddingBottom: Spacing.five,
   },

@@ -26,7 +26,7 @@ export default function OpenSourceScreen() {
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 
                 <View style={styles.card}>
-                    <Text style={styles.sectionTitle}>本專案</Text>
+                    <Text style={styles.sectionTitle}>このプロジェクト</Text>
                     <View style={styles.divider} />
                     
                     <Text style={styles.itemName}>Nekogo</Text>
@@ -99,6 +99,14 @@ export default function OpenSourceScreen() {
                     <Text style={styles.licenseText}>MIT License</Text>
                     <Text style={styles.descriptionText}>
                         SVG library for React Native. Copyright (c) 2015 Horcrux.
+                    </Text>
+
+                    <View style={styles.innerDivider} />
+
+                    <Text style={styles.itemName}>Gorhom Bottom Sheet</Text>
+                    <Text style={styles.licenseText}>MIT License</Text>
+                    <Text style={styles.descriptionText}>
+                        A performant interactive bottom sheet with fully configurable options. Copyright (c) 2020 Mo Gorhom.
                     </Text>
                 </View>
 
