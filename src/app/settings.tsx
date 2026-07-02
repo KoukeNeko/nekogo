@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Colors, Spacing, BORDER_RADIUS, Fonts } from "../constants/theme";
@@ -52,6 +52,7 @@ export default function SettingsScreen() {
   // FSRS 參數最適化（用本機複習歷史訓練）。
   const [reviewCount, setReviewCount] = useState(0);
   const [optimizing, setOptimizing] = useState(false);
+
   useEffect(() => {
     try {
       setReviewCount(getReviewLogCount());
@@ -244,25 +245,19 @@ export default function SettingsScreen() {
           <SettingsRow label="キャッシュを削除" valueText="124 MB" onPress={() => { }} />
         </SettingsCard>
 
-        {/* Section 6: Account */}
-        <Text style={styles.sectionHeaderLabel}>アカウント</Text>
-        <SettingsCard>
-          <SettingsRow label="メールアドレス" valueText="[email protected]" valueColor="#0066CC" showChevron onPress={() => { }} />
-          <SettingsDivider />
-          <SettingsRow label="サブスクリプション" showChevron onPress={() => { }}>
-            <View style={styles.proBadge}>
-              <Text style={styles.proBadgeText}>PRO</Text>
-            </View>
-          </SettingsRow>
-        </SettingsCard>
-
-        {/* Section 7: About / Legal */}
+        {/* Section 6: About / Legal */}
         <Text style={styles.sectionHeaderLabel}>情報</Text>
         <SettingsCard>
           <SettingsRow 
             label="ライセンス (Licenses)" 
             showChevron 
             onPress={() => router.push('/licenses')} 
+          />
+          <SettingsDivider />
+          <SettingsRow 
+            label="コントリビューター (Contributors)" 
+            showChevron 
+            onPress={() => router.push('/contributors')} 
           />
         </SettingsCard>
 

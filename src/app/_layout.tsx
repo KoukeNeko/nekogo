@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity } from "react-native";
 import { useFonts } from 'expo-font';
 import { JetBrainsMono_400Regular } from '@expo-google-fonts/jetbrains-mono';
 import * as SplashScreen from 'expo-splash-screen';
+import * as SystemUI from 'expo-system-ui';
 import { useEffect, useState } from 'react';
 import { SettingsProvider } from '../context/SettingsContext';
 import { initDB } from '../db/schema';
@@ -27,6 +28,8 @@ export default function RootLayout() {
   // 失敗（多半是內容庫掛載/建卡出錯）會顯示錯誤＋再試行，而非靜默空白。
   useEffect(() => {
     let cancelled = false;
+    // 視窗底色釘成 App 深色：換頁過場的縫隙露出的是 window 背景（預設亮色），不釘會閃白/閃藍。
+    SystemUI.setBackgroundColorAsync('#0B0C10').catch(() => {});
     // Slice 0：驗證 fsrs-rs 原生橋接（dev build 應印 42；Expo Go 為 null）。
     console.log('[FsrsNative] available =', FsrsNative.isAvailable(), '| ping =', FsrsNative.ping());
     (async () => {
@@ -77,10 +80,18 @@ export default function RootLayout() {
 
   return (
     <SettingsProvider>
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0B0C10' } }}> {/* to prevent screen flash */}
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          // 防露底兩件套：場景底 + window 底（見 SystemUI.setBackgroundColorAsync）都釘深色，
+          // 換頁過場的縫隙才不會閃出亮色。
+          contentStyle: { backgroundColor: '#0B0C10' },
+        }}
+      >
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="review" />
         <Stack.Screen name="licenses" />
+        <Stack.Screen name="contributors" />
       </Stack>
     </SettingsProvider>
   );
