@@ -35,6 +35,7 @@ const styles = StyleSheet.create({
   leftArea: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 1,
   },
   centerArea: {
     flex: 1,
