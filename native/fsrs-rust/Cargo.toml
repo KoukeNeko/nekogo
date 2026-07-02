@@ -10,7 +10,7 @@ crate-type = ["staticlib", "cdylib"]
 
 [dependencies]
 # fsrs 6.6.1 的 optimizer 為純 ndarray/rayon CPU 實作（burn 僅其 dev-dependency），
-# 故可乾淨跨編到 iOS/Android，無需 GPU/wgpu。
+# 故可乾淨交叉編譯到 iOS/Android，無需 GPU/wgpu。
 fsrs = "6.6.1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

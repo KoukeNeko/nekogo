@@ -1,7 +1,7 @@
-# FSRS Native Optimizer — Rust 跨編 + iOS/Android 原生模組
+# FSRS Native Optimizer — Rust 交叉編譯 + iOS/Android 原生模組
 
 > FSRS 參數個人化（用使用者複習歷史訓練 `w`）的原生實作紀錄。
-> 計畫與決策過程見 [`PROPOSED_PLAN.md`](../PROPOSED_PLAN.md)；本檔記錄**實際做了什麼、怎麼跨編、如何重建**。
+> 計畫與決策過程見 [`PROPOSED_PLAN.md`](../PROPOSED_PLAN.md)；本檔記錄**實際做了什麼、怎麼交叉編譯、如何重建**。
 
 ## 為什麼要原生模組
 
@@ -11,7 +11,7 @@
 
 ## 關鍵發現
 
-**`fsrs` crate 6.6.1 的 `compute_parameters` 是純 `ndarray` / `rayon` CPU 實作；`burn` 只是它的 dev-dependency（給自己的 test/bench）。** 因此**無 Burn、無 GPU、無 wgpu**，跨編到 iOS/Android 很輕（每目標 ~18s，.so/.a 數百 KB）。原本最擔心的「Burn 跨編行動端」風險不存在。
+**`fsrs` crate 6.6.1 的 `compute_parameters` 是純 `ndarray` / `rayon` CPU 實作；`burn` 只是它的 dev-dependency（給自己的 test/bench）。** 因此**無 Burn、無 GPU、無 wgpu**，交叉編譯到 iOS/Android 很輕（每目標 ~18s，.so/.a 數百 KB）。原本最擔心的「Burn 交叉編譯行動端」風險不存在。
 
 fsrs API 重點：
 - `compute_parameters(ComputeParametersInput { train_set: Vec<FSRSItem>, ..Default::default() }) -> Result<Vec<f32>>`
@@ -48,7 +48,7 @@ Rust crate  native/fsrs-rust  (lib name: fsrs_mobile)
 | `src/db/repositories/fsrsParamsRepository.ts` | kv 表存取 w + revlog 計數 |
 | `src/app/settings.tsx` | 既有「パラメータ最適化」列接上真實訓練 |
 
-## iOS 跨編
+## iOS 交叉編譯
 
 - Rust targets：`aarch64-apple-ios`（device）、`aarch64-apple-ios-sim`、`x86_64-apple-ios`（模擬器）。
 - device arm64 與 sim arm64 **不能 `lipo`**（同 arch 不同平台），故必須 **`.xcframework`**：sim 端先 `lipo` 成 arm64+x86_64 胖庫，再 `xcodebuild -create-xcframework`（device slice + 胖 sim slice，`-headers ./include` 內含 C header + `module.modulemap`）。
@@ -72,7 +72,7 @@ cd ../../ios && LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 pod install
 cd .. && LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 npx expo run:ios
 ```
 
-## Android 跨編
+## Android 交叉編譯
 
 - 工具：**Android NDK**（已裝 28.2；app 端 gradle 另用 RN 0.85 指定的 NDK 27 編 RN C++，與我們預編 .so 無關）+ **`cargo-ndk`** + Rust targets `aarch64-linux-android` / `armv7-linux-androideabi` / `x86_64-linux-android`。
 - crate 對 Android 輸出 **`cdylib` (.so)**；Kotlin 不能直接呼叫 C → 用 **JNI**：Rust 端 `#[cfg(target_os="android")]` 的 `Java_expo_modules_fsrsnative_FsrsNativeRust_optimize`（與 Kotlin `object FsrsNativeRust { external fun optimize(...) }` 的 package/類名/方法名**必須完全一致**）。
