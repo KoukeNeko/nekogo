@@ -287,6 +287,7 @@ export default function Home() {
         animationType="fade"
         onRequestClose={() => setModalVisible(false)}
         statusBarTranslucent
+        navigationBarTranslucent
       >
         <View style={styles.modalOverlay}>
           <Animated.View entering={SlideInDown.duration(300)} style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom, 24) }]}>
