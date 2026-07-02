@@ -110,6 +110,9 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        // 關閉懶載入：四個分頁在啟動時（開屏遮蓋期間）就預先掛載，
+        // 首次切換才不會在過場中途才開始長頁面（卡頓的主因之一）。
+        lazy: false,
         // 場景容器釘成 App 深色底：預設是導航主題的亮色，分頁懶載入/重新掛載的瞬間會露出來閃一下。
         sceneStyle: { backgroundColor: Colors.dark.background },
         // M3 的分頁過場：內容朝切換方向微橫移＋交叉淡入，用 M3E spatial default 彈簧驅動。

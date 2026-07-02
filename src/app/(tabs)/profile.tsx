@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, InteractionManager } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Colors, Spacing, BORDER_RADIUS, Fonts } from "../../constants/theme";
 import { AppBar } from "../../components/ui/AppBar";
@@ -14,11 +14,15 @@ export default function Profile() {
 
   useFocusEffect(
     useCallback(() => {
-      try {
-        setCounts(getCollectionCounts());
-      } catch (e) {
-        console.error('Failed to load collection counts', e);
-      }
+      // 延到分頁過場結束後再查 DB（executeSync 會佔用 JS 執行緒，聚焦瞬間跑會卡過場動畫）。
+      const task = InteractionManager.runAfterInteractions(() => {
+        try {
+          setCounts(getCollectionCounts());
+        } catch (e) {
+          console.error('Failed to load collection counts', e);
+        }
+      });
+      return () => task.cancel();
     }, [])
   );
 

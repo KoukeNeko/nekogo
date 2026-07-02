@@ -19,10 +19,10 @@ import { db } from './schema';
 
 export const CONTENT_ALIAS = 'content';
 // 版本化檔名：內容庫改版或副本需強制重建時 bump，下次啟動會重新複製，不動使用者主庫 cards/revlog。
-// v5：v4 副本曾被未限定的 DROP TABLE 誤刪 content.decks（見 schema.ts 註解），bump 強制換新副本。
-const CONTENT_DB_FILE = 'kioku-content-v5.db';
+// v7：例句繁中批次翻譯第一波套用（覆蓋 ~39%）。
+const CONTENT_DB_FILE = 'kioku-content-v7.db';
 // 舊版副本檔名：複製新版時順手清掉，避免 134MB 級的孤兒檔佔用空間。
-const STALE_CONTENT_DB_FILES = ['kioku-content-v4.db'];
+const STALE_CONTENT_DB_FILES = ['kioku-content-v4.db', 'kioku-content-v5.db', 'kioku-content-v6.db'];
 const DEST_URI = `${FileSystem.documentDirectory}${CONTENT_DB_FILE}`;
 const DEST_PATH = DEST_URI.replace('file://', '');
 

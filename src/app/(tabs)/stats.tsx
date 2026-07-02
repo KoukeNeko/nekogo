@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { View, Text, StyleSheet, ScrollView } from "react-native";
+import { View, Text, StyleSheet, ScrollView, InteractionManager } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
 import { Colors, Spacing, BORDER_RADIUS, Fonts } from "../../constants/theme";
@@ -13,12 +13,16 @@ export default function Stats() {
 
   useFocusEffect(
     useCallback(() => {
-      try {
-        setStats(getStats());
-        setStudyTimeStats(getStudyTimeStats());
-      } catch (e) {
-        console.error('Failed to load stats', e);
-      }
+      // 統計聚合查詢偏重（executeSync 同步佔用 JS 執行緒），延到分頁過場結束後再跑，切換才不卡頓。
+      const task = InteractionManager.runAfterInteractions(() => {
+        try {
+          setStats(getStats());
+          setStudyTimeStats(getStudyTimeStats());
+        } catch (e) {
+          console.error('Failed to load stats', e);
+        }
+      });
+      return () => task.cancel();
     }, [])
   );
 

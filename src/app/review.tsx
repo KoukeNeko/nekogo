@@ -319,6 +319,7 @@ export default function Review() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <AppBar
+        centerMode="flex"
         leftContent={
           isDictionaryMode ? (
             <BackButton />
@@ -397,17 +398,17 @@ const styles = StyleSheet.create({
   },
   progressBarContainer: {
     flex: 1,
-    height: 6,
+    height: 8,
     backgroundColor: '#2E3135',
-    marginHorizontal: Spacing.two, // Reduced margin to make it longer
-    borderRadius: 3,
+    marginHorizontal: 0,
+    borderRadius: 4,
     overflow: 'hidden',
   },
   progressBarFill: {
     width: '30%',
     height: '100%',
     backgroundColor: Colors.dark.primaryOrange,
-    borderRadius: 3,
+    borderRadius: 4,
   },
   progressText: {
     color: Colors.dark.textSecondary,

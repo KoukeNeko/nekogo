@@ -47,7 +47,7 @@ export default function SettingsScreen() {
   const [displayFont, setDisplayFont] = useState<'明朝' | 'ゴシック'>('明朝');
   const [themeMode, setThemeMode] = useState<'システム' | 'ライト' | 'ダーク'>('ダーク');
 
-  const { strokeSpeed, setStrokeSpeed } = useSettings();
+  const { strokeSpeed, setStrokeSpeed, translationLanguage, setTranslationLanguage } = useSettings();
 
   // FSRS 參數最適化（用本機複習歷史訓練）。
   const [reviewCount, setReviewCount] = useState(0);
@@ -184,6 +184,14 @@ export default function SettingsScreen() {
         <Text style={styles.sectionHeaderLabel}>表示</Text>
         <SettingsCard>
           <SettingsSwitchRow label="ふりがな（既定）" value={furiganaEnabled} onValueChange={setFuriganaEnabled} />
+          <SettingsDivider />
+          <SettingsRow label="翻訳の言語" subLabel="語義と例文の表示言語">
+            {renderSegment(
+              ['繁體中文', 'English'],
+              translationLanguage === 'zh' ? '繁體中文' : 'English',
+              (val: string) => setTranslationLanguage(val === '繁體中文' ? 'zh' : 'en'),
+            )}
+          </SettingsRow>
           <SettingsDivider />
           <SettingsRow label="ピッチ表記">
             {renderSegment(['上線', '数字'], pitchAccent, setPitchAccent)}

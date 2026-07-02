@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, InteractionManager } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Colors, Spacing, BORDER_RADIUS, Fonts } from "../../constants/theme";
 import { Search, MoreHorizontal, Plus, LayoutGrid, List, Library, Check } from "lucide-react-native";
@@ -16,11 +16,14 @@ export default function Decks() {
 
   useFocusEffect(
     useCallback(() => {
+      // 延到分頁過場結束後再查 DB（目錄＋指標的 executeSync 會佔用 JS 執行緒，聚焦瞬間跑會卡過場動畫）。
       let cancelled = false;
-      getAllDecksWithMetrics()
-        .then((data) => { if (!cancelled) setDecks(data); })
-        .catch((e) => console.error('Failed to load decks', e));
-      return () => { cancelled = true; };
+      const task = InteractionManager.runAfterInteractions(() => {
+        getAllDecksWithMetrics()
+          .then((data) => { if (!cancelled) setDecks(data); })
+          .catch((e) => console.error('Failed to load decks', e));
+      });
+      return () => { cancelled = true; task.cancel(); };
     }, [])
   );
 

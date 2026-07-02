@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
     headerTitle: {
         color: Colors.dark.text,
         fontSize: 18,
-        fontFamily: Fonts?.serif,
+        fontWeight: 'bold',
     },
     scrollContent: {
         paddingHorizontal: Spacing.four,

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, InteractionManager } from "react-native";
 import { useSafeAreaInsets, SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Colors, Spacing, BORDER_RADIUS, Fonts } from "../../constants/theme";
@@ -65,11 +65,6 @@ export default function Home() {
   const [activeSelectedIds, setActiveSelectedIds] = useState<string[]>([]);
   const [seeding, setSeeding] = useState(false);
 
-  // 嘗試預載以供按鈕顯示文字
-  useEffect(() => {
-    fetchDecks().then(setAvailableDecks).catch(console.error);
-  }, []);
-
   const loadMetrics = useCallback(() => {
     try {
       const data = getDailyMetrics();
@@ -89,9 +84,14 @@ export default function Home() {
 
   useFocusEffect(
     useCallback(() => {
-      setActiveSelectedIds(getSelectedDecks());
-      loadMetrics();
-      return () => { };
+      // 延到分頁過場結束後再查 DB（executeSync 會佔用 JS 執行緒，聚焦瞬間跑會卡過場動畫）。
+      // 牌組目錄預載也放這裡（而非 mount 時）：開屏期間 Stack 已渲染，mount 搶跑會早於內容庫掛載而報錯。
+      const task = InteractionManager.runAfterInteractions(() => {
+        setActiveSelectedIds(getSelectedDecks());
+        loadMetrics();
+        fetchDecks().then(setAvailableDecks).catch(console.error);
+      });
+      return () => task.cancel();
     }, [loadMetrics])
   );
 

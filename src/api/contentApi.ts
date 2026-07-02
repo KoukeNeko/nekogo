@@ -12,15 +12,28 @@ import { CONTENT_ALIAS } from '../db/contentDb';
  * 每個查詢的 SQL 與 row→物件映射對照原後端 server/store.go。
  */
 
-// 內容庫改版時 bump（對齊原後端 ContentVersion）。
-const CONTENT_VERSION = 'v4';
+// 內容庫改版時 bump（對齊原後端 ContentVersion）。v5：新增繁中翻譯（vocab.gloss_zh / example.zh）。
+const CONTENT_VERSION = 'v5';
 // 單次 IN 查詢的最大 id 數（避免超過 SQLite 變數上限；超出則分批）。
 const MAX_IN_PARAMS = 500;
 
 const C = CONTENT_ALIAS;
-const VOCAB_COLS = 'id, expression, reading, furigana, gloss, pos, jlpt, pitch, freq_rank, intro_rank, is_jukugo';
-const VOCAB_COLS_V =
-  'v.id, v.expression, v.reading, v.furigana, v.gloss, v.pos, v.jlpt, v.pitch, v.freq_rank, v.intro_rank, v.is_jukugo';
+
+/** 翻譯顯示語言：'zh' = 繁中優先（缺譯退回英文）、'en' = 英文原文。由設定頁切換（見 SettingsContext）。 */
+export type TranslationLanguage = 'zh' | 'en';
+let translationLanguage: TranslationLanguage = 'zh';
+export const setContentLanguage = (language: TranslationLanguage): void => {
+  translationLanguage = language;
+};
+
+// SQL 片段依語言即時組出（翻譯分批補齊中，zh 模式缺譯自動退回英文）。
+const glossSql = () => (translationLanguage === 'zh' ? "COALESCE(NULLIF(gloss_zh, ''), gloss)" : 'gloss');
+const glossSqlV = () => (translationLanguage === 'zh' ? "COALESCE(NULLIF(v.gloss_zh, ''), v.gloss)" : 'v.gloss');
+const exampleTextSql = () => (translationLanguage === 'zh' ? "COALESCE(NULLIF(e.zh, ''), e.en)" : 'e.en');
+const vocabCols = () =>
+  `id, expression, reading, furigana, ${glossSql()} AS gloss, pos, jlpt, pitch, freq_rank, intro_rank, is_jukugo`;
+const vocabColsV = () =>
+  `v.id, v.expression, v.reading, v.furigana, ${glossSqlV()} AS gloss, v.pos, v.jlpt, v.pitch, v.freq_rank, v.intro_rank, v.is_jukugo`;
 
 export interface FuriganaChunk {
   ruby: string;
@@ -188,7 +201,7 @@ export const fetchDeckVocab = async (deckId: string, limit?: number, offset?: nu
     throw new Error(`deck not found: ${deckId}`);
   }
   let sql =
-    `SELECT ${VOCAB_COLS_V} FROM ${C}.deck_vocab dv JOIN ${C}.vocab v ON dv.vocab_id = v.id` +
+    `SELECT ${vocabColsV()} FROM ${C}.deck_vocab dv JOIN ${C}.vocab v ON dv.vocab_id = v.id` +
     ` WHERE dv.deck_id = ? ORDER BY dv.position IS NULL, dv.position ASC, v.intro_rank IS NULL, v.intro_rank ASC`;
   const args: Scalar[] = [deckId];
   // offset 需獨立於 limit 生效；SQLite 的 OFFSET 必須搭配 LIMIT，無上限時用 LIMIT -1。
@@ -225,7 +238,7 @@ export const fetchVocabByIds = async (ids: string[]): Promise<ApiVocab[]> => {
     const chunk = ids.slice(start, start + MAX_IN_PARAMS);
     const placeholders = chunk.map(() => '?').join(',');
     const rows =
-      db.executeSync(`SELECT ${VOCAB_COLS} FROM ${C}.vocab WHERE id IN (${placeholders})`, chunk as Scalar[]).rows ?? [];
+      db.executeSync(`SELECT ${vocabCols()} FROM ${C}.vocab WHERE id IN (${placeholders})`, chunk as Scalar[]).rows ?? [];
     for (const row of rows) out.push(rowToVocab(row));
   }
   return out;
@@ -233,13 +246,13 @@ export const fetchVocabByIds = async (ids: string[]): Promise<ApiVocab[]> => {
 
 /** 單字延伸：核心 + 例句 + 構成漢字。找不到即拋錯（對照後端 404）。 */
 export const fetchVocabDetail = async (vocabId: string): Promise<ApiVocabDetail> => {
-  const base = db.executeSync(`SELECT ${VOCAB_COLS} FROM ${C}.vocab WHERE id = ?`, [vocabId]).rows?.[0];
+  const base = db.executeSync(`SELECT ${vocabCols()} FROM ${C}.vocab WHERE id = ?`, [vocabId]).rows?.[0];
   if (!base) {
     throw new Error(`vocab not found: ${vocabId}`);
   }
   const exampleRows =
     db.executeSync(
-      `SELECT e.jp, e.furigana, e.en FROM ${C}.example e` +
+      `SELECT e.jp, e.furigana, ${exampleTextSql()} AS en FROM ${C}.example e` +
         ` JOIN ${C}.vocab_example ve ON e.id = ve.example_id WHERE ve.vocab_id = ?`,
       [vocabId],
     ).rows ?? [];
@@ -262,7 +275,7 @@ export const fetchVocabDetail = async (vocabId: string): Promise<ApiVocabDetail>
 export const fetchKanjiWords = async (char: string, limit = 10): Promise<ApiVocab[]> => {
   const rows =
     db.executeSync(
-      `SELECT ${VOCAB_COLS_V} FROM ${C}.vocab v JOIN ${C}.vocab_kanji vk ON v.id = vk.vocab_id WHERE vk.char = ? LIMIT ?`,
+      `SELECT ${vocabColsV()} FROM ${C}.vocab v JOIN ${C}.vocab_kanji vk ON v.id = vk.vocab_id WHERE vk.char = ? LIMIT ?`,
       [char, limit],
     ).rows ?? [];
   return rows.map(rowToVocab);
@@ -271,8 +284,10 @@ export const fetchKanjiWords = async (char: string, limit = 10): Promise<ApiVoca
 /** 含某漢字的例句（筆順頁例句）。 */
 export const fetchKanjiExamples = async (char: string, limit = 10): Promise<ApiKanjiExample[]> => {
   const rows =
-    db.executeSync(`SELECT id, jp, furigana, en FROM ${C}.example WHERE jp LIKE ? LIMIT ?`, [`%${char}%`, limit])
-      .rows ?? [];
+    db.executeSync(
+      `SELECT e.id, e.jp, e.furigana, ${exampleTextSql()} AS en FROM ${C}.example e WHERE e.jp LIKE ? LIMIT ?`,
+      [`%${char}%`, limit],
+    ).rows ?? [];
   return rows.map((row: any) => ({
     id: row.id,
     jp: row.jp,
@@ -288,11 +303,11 @@ export const fetchSearch = async (query: string, limit = 50): Promise<ApiSearchR
 
   const vocabRows =
     db.executeSync(
-      `SELECT id, expression, reading, gloss, jlpt FROM ${C}.vocab` +
-        ` WHERE expression LIKE ? OR reading LIKE ? OR gloss LIKE ?` +
+      `SELECT id, expression, reading, ${glossSql()} AS gloss, jlpt FROM ${C}.vocab` +
+        ` WHERE expression LIKE ? OR reading LIKE ? OR gloss LIKE ? OR gloss_zh LIKE ?` +
         ` ORDER BY CASE WHEN expression = ? OR reading = ? THEN 1` +
         `   WHEN expression LIKE ? OR reading LIKE ? THEN 2 ELSE 3 END LIMIT ?`,
-      [like, like, like, query, query, prefix, prefix, limit],
+      [like, like, like, like, query, query, prefix, prefix, limit],
     ).rows ?? [];
   const vocab: ApiSearchVocab[] = vocabRows.map((row: any) => ({
     id: row.id,
@@ -320,10 +335,10 @@ export const fetchSearch = async (query: string, limit = 50): Promise<ApiSearchR
       `SELECT d.id, d.name, d.description, d.tags, d.color, COUNT(DISTINCT v.id) AS vocab_count` +
         ` FROM ${C}.decks d` +
         ` LEFT JOIN ${C}.deck_vocab dv ON dv.deck_id = d.id` +
-        ` LEFT JOIN ${C}.vocab v ON v.id = dv.vocab_id AND (v.expression LIKE ? OR v.reading LIKE ? OR v.gloss LIKE ?)` +
+        ` LEFT JOIN ${C}.vocab v ON v.id = dv.vocab_id AND (v.expression LIKE ? OR v.reading LIKE ? OR v.gloss LIKE ? OR v.gloss_zh LIKE ?)` +
         ` WHERE d.name LIKE ? OR d.description LIKE ? OR v.id IS NOT NULL` +
         ` GROUP BY d.id, d.name, d.description, d.tags, d.color, d.sort_order ORDER BY d.sort_order LIMIT ?`,
-      [like, like, like, like, like, limit],
+      [like, like, like, like, like, like, limit],
     ).rows ?? [];
   const decks: ApiSearchDeck[] = deckRows.map((row: any) => ({
     id: row.id,
