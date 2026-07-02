@@ -74,9 +74,11 @@ const styles = StyleSheet.create({
     rt: {
         fontFamily: Fonts?.serif,
         textAlign: 'center',
+        includeFontPadding: false,
     },
     ruby: {
         fontFamily: Fonts?.serifBold,
         textAlign: 'center',
+        includeFontPadding: false,
     }
 });
