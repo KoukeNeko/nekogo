@@ -218,20 +218,6 @@ export default function Home() {
             </View>
           </View>
 
-          {/* Action Button */}
-          <TouchableOpacity
-            style={[styles.mainButton, totalDue === 0 && { backgroundColor: '#2E3135' }]}
-            onPress={() => {
-              if (totalDue > 0) {
-                router.push("/review");
-              }
-            }}
-            activeOpacity={totalDue === 0 ? 1 : 0.7}
-          >
-            <Text style={[styles.mainButtonText, totalDue === 0 && { color: '#8E8F94' }]}>
-              {totalDue === 0 ? '今日の目標達成！ 🎉' : '復習を始める　→'}
-            </Text>
-          </TouchableOpacity>
         </View>
 
         {/* Modes Header */}
@@ -424,7 +410,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: Spacing.four, // reduced from Spacing.five
   },
   chartContainer: {
     width: 110,
