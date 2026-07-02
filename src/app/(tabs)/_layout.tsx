@@ -3,26 +3,53 @@ import { Colors } from "../../constants/theme";
 import { Home, Layers, BarChart2, User } from "lucide-react-native";
 import { StyleSheet, Platform, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 import React, { useEffect } from "react";
 
-// M3 Expressive 的彈簧參數：低阻尼讓藥丸展開帶一點過衝（bouncy）。
-const PILL_SPRING = { damping: 14, stiffness: 220 };
+// M3 Expressive motion tokens（dampingRatio/stiffness 轉為 Reanimated 物理參數，mass=1：damping = 2ζ√k）。
+const SPRING_SPATIAL_FAST = { damping: 34, stiffness: 800 };    // ζ0.6：明顯過衝的彈跳（選中 pop / 放開回彈）
+const SPRING_SPATIAL_DEFAULT = { damping: 31, stiffness: 380 }; // ζ0.8：溫和過衝（藥丸展開）
+const SPRING_EFFECTS = { damping: 80, stiffness: 1600 };        // ζ1.0：無彈跳的即時回饋（按下壓縮）
+// 選中 pop：icon 先快速縮小/下沉，再以彈簧彈回（withSequence 的第一段時長）。
+const POP_WIND_UP_MS = 70;
+const PRESS_SQUISH_SCALE = 0.9;
 // 藥丸底色：品牌橘的低透明 tonal（對應 M3 secondaryContainer 角色）。
 const PILL_COLOR = 'rgba(255, 107, 53, 0.22)';
 
 /**
- * Material 3 Expressive 的分頁圖示：聚焦時圖示後方展開藥丸形 active indicator。
+ * Material 3 Expressive 的分頁圖示：聚焦時藥丸展開 + icon 縮放彈跳（squash & stretch pop）。
  * 僅 Android 套用（iOS 維持原本樣式，直接回傳圖示）。
  */
 function ExpressiveIcon({ focused, children }: { focused: boolean; children: React.ReactNode }) {
   const progress = useSharedValue(focused ? 1 : 0);
+  const iconScale = useSharedValue(1);
+  const iconShiftY = useSharedValue(0);
   useEffect(() => {
-    progress.value = withSpring(focused ? 1 : 0, PILL_SPRING);
-  }, [focused, progress]);
+    progress.value = withSpring(focused ? 1 : 0, SPRING_SPATIAL_DEFAULT);
+    if (focused) {
+      // 選中瞬間：icon 縮小下沉（蓄力）→ 彈簧回彈帶過衝，做出 M3E 的活潑 pop。
+      iconScale.value = withSequence(
+        withTiming(0.7, { duration: POP_WIND_UP_MS }),
+        withSpring(1, SPRING_SPATIAL_FAST),
+      );
+      iconShiftY.value = withSequence(
+        withTiming(2, { duration: POP_WIND_UP_MS }),
+        withSpring(0, SPRING_SPATIAL_FAST),
+      );
+    }
+  }, [focused, progress, iconScale, iconShiftY]);
   const pillStyle = useAnimatedStyle(() => ({
     transform: [{ scaleX: 0.6 + 0.4 * progress.value }],
     opacity: progress.value,
+  }));
+  const iconStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: iconScale.value }, { translateY: iconShiftY.value }],
   }));
 
   if (Platform.OS !== 'android') {
@@ -31,8 +58,46 @@ function ExpressiveIcon({ focused, children }: { focused: boolean; children: Rea
   return (
     <View style={styles.iconWrap}>
       <Animated.View style={[styles.pill, pillStyle]} />
-      {children}
+      <Animated.View style={iconStyle}>{children}</Animated.View>
     </View>
+  );
+}
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+/**
+ * Android 分頁按鈕：按下時整個項目壓縮（無彈跳、即時），放開以彈簧回彈帶過衝。
+ * 取代預設 PlatformPressable；expo-router 會往 button props 注入
+ * android_ripple:{borderless:true} / hoverEffect / pressColor / pressOpacity，
+ * 必須全部剝掉不往下傳，否則 spread 進 Pressable 後圓形 ripple 又會回來。
+ */
+function ExpressiveTabButton({
+  style,
+  onPressIn,
+  onPressOut,
+  android_ripple: _androidRipple,
+  hoverEffect: _hoverEffect,
+  pressColor: _pressColor,
+  pressOpacity: _pressOpacity,
+  ...rest
+}: any) {
+  const pressScale = useSharedValue(1);
+  const pressStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pressScale.value }],
+  }));
+  return (
+    <AnimatedPressable
+      {...rest}
+      style={[style, pressStyle]}
+      onPressIn={(event: unknown) => {
+        pressScale.value = withSpring(PRESS_SQUISH_SCALE, SPRING_EFFECTS);
+        onPressIn?.(event);
+      }}
+      onPressOut={(event: unknown) => {
+        pressScale.value = withSpring(1, SPRING_SPATIAL_FAST);
+        onPressOut?.(event);
+      }}
+    />
   );
 }
 
@@ -62,9 +127,9 @@ export default function TabLayout() {
               paddingBottom: 16,
               paddingTop: 10,
             },
-        // Android 移除預設的圓形 ripple 按壓效果（改用普通 Pressable，無回饋；選中狀態已有藥丸 indicator）。
+        // Android：自訂分頁按鈕 — 移除預設圓形 ripple，改為 M3E 的按壓壓縮＋放開回彈。
         tabBarButton: Platform.OS === 'android'
-          ? (props) => <Pressable {...(props as any)} android_ripple={undefined} />
+          ? (props) => <ExpressiveTabButton {...props} />
           : undefined,
         tabBarActiveTintColor: Colors.dark.primaryOrange,
         tabBarInactiveTintColor: Colors.dark.textSecondary,

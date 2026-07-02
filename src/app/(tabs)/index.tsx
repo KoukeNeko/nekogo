@@ -10,6 +10,7 @@ import { getSelectedDecks, setSelectedDecks } from '../../db/repositories/select
 import { ensureSelectedDeckCards } from '../../db/seed';
 import { fetchDecks, ApiDeck } from '../../api/contentApi';
 import { AppBar } from "../../components/ui/AppBar";
+import Animated, { SlideInDown } from 'react-native-reanimated';
 
 const CircularProgress = ({ progress, size, strokeWidth, color, trackColor, children }: any) => {
   const radius = (size - strokeWidth) / 2;
@@ -88,7 +89,7 @@ export default function Home() {
     useCallback(() => {
       setActiveSelectedIds(getSelectedDecks());
       loadMetrics();
-      return () => {};
+      return () => { };
     }, [loadMetrics])
   );
 
@@ -115,14 +116,14 @@ export default function Home() {
   };
 
   const handleToggleDeck = (id: string) => {
-    setTempSelectedIds(prev => 
+    setTempSelectedIds(prev =>
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
     );
   };
 
   const hasSelection = activeSelectedIds.length > 0;
   let selectorText = "すべて";
-  
+
   if (hasSelection) {
     const names = activeSelectedIds.map(id => {
       const d = availableDecks.find(x => x.id === id);
@@ -146,11 +147,11 @@ export default function Home() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <AppBar
         leftContent={
-          <TouchableOpacity 
-            style={[styles.selectorChip, hasSelection && styles.selectorChipActive]} 
+          <TouchableOpacity
+            style={[styles.selectorChip, hasSelection && styles.selectorChipActive]}
             onPress={handleOpenModal}
           >
-            <Text 
+            <Text
               style={[styles.selectorChipText, hasSelection && styles.selectorChipTextActive]}
               numberOfLines={1}
               ellipsizeMode="tail"
@@ -176,11 +177,11 @@ export default function Home() {
           <View style={styles.mainCardTopRow}>
             {/* Circular Progress */}
             <View style={styles.chartContainer}>
-              <CircularProgress 
-                progress={progress} 
-                size={110} 
-                strokeWidth={10} 
-                color={totalDue === 0 ? '#66D283' : Colors.dark.primaryOrange} 
+              <CircularProgress
+                progress={progress}
+                size={110}
+                strokeWidth={10}
+                color={totalDue === 0 ? '#66D283' : Colors.dark.primaryOrange}
                 trackColor="#2E3135"
               >
                 <View style={{ alignItems: 'center', marginTop: 4 }}>
@@ -216,7 +217,7 @@ export default function Home() {
           </View>
 
           {/* Action Button */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.mainButton, totalDue === 0 && { backgroundColor: '#2E3135' }]}
             onPress={() => {
               if (totalDue > 0) {
@@ -258,8 +259,8 @@ export default function Home() {
             </View>
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={[styles.modeCard, { opacity: 0.6 }]} 
+          <TouchableOpacity
+            style={[styles.modeCard, { opacity: 0.6 }]}
             onPress={() => Alert.alert('近日公開', 'この機能は現在開発中です。お楽しみに！')}
           >
             <View style={styles.modeIcon}>
@@ -280,14 +281,15 @@ export default function Home() {
       </ScrollView>
 
       {/* Range Selector Modal */}
-      <Modal 
-        visible={modalVisible} 
-        transparent 
-        animationType="slide"
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="fade"
         onRequestClose={() => setModalVisible(false)}
+        statusBarTranslucent
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom, 24) }]}>
+          <Animated.View entering={SlideInDown.duration(300)} style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom, 24) }]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>学習範囲</Text>
               <TouchableOpacity onPress={() => setModalVisible(false)} style={{ padding: Spacing.one }}>
@@ -295,8 +297,8 @@ export default function Home() {
               </TouchableOpacity>
             </View>
             <ScrollView style={styles.modalList} showsVerticalScrollIndicator={false}>
-              <TouchableOpacity 
-                style={styles.modalRow} 
+              <TouchableOpacity
+                style={styles.modalRow}
                 onPress={() => setTempSelectedIds([])}
                 activeOpacity={0.7}
               >
@@ -305,13 +307,13 @@ export default function Home() {
                 </View>
                 <Text style={styles.modalRowTitle}>すべて</Text>
               </TouchableOpacity>
-              
+
               {availableDecks.map(deck => {
                 const isSelected = tempSelectedIds.includes(deck.id);
                 return (
-                  <TouchableOpacity 
-                    key={deck.id} 
-                    style={styles.modalRow} 
+                  <TouchableOpacity
+                    key={deck.id}
+                    style={styles.modalRow}
                     onPress={() => handleToggleDeck(deck.id)}
                     activeOpacity={0.7}
                   >
@@ -334,7 +336,7 @@ export default function Home() {
             >
               <Text style={styles.confirmButtonText}>{seeding ? '準備中…' : '確定'}</Text>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
     </SafeAreaView>
