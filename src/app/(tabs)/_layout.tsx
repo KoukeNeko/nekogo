@@ -110,6 +110,12 @@ export default function TabLayout() {
         headerShown: false,
         // 場景容器釘成 App 深色底：預設是導航主題的亮色，分頁懶載入/重新掛載的瞬間會露出來閃一下。
         sceneStyle: { backgroundColor: Colors.dark.background },
+        // M3 的分頁過場：內容朝切換方向微橫移＋交叉淡入，用 M3E spatial default 彈簧驅動。
+        animation: 'shift',
+        transitionSpec: {
+          animation: 'spring',
+          config: SPRING_SPATIAL_DEFAULT,
+        },
         // Android：M3 Expressive nav bar（surface container 底、無頂線、藥丸 indicator、標籤在下）。
         // iOS：維持原本實色 + 頂線樣式。
         tabBarStyle: Platform.OS === 'android'
