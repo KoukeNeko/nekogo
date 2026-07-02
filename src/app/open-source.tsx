@@ -5,17 +5,14 @@ import { ChevronLeft } from 'lucide-react-native';
 import { Colors, Spacing, Fonts, BORDER_RADIUS } from '../constants/theme';
 import { AppBar } from '../components/ui/AppBar';
 import { BackButton } from '../components/ui/BackButton';
+import { LibraryItem } from '../components/ui/LibraryItem';
 
 export default function OpenSourceScreen() {
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
             <AppBar
-                leftContent={
-                    <BackButton />
-                }
-                centerContent={
-                    <Text style={styles.headerTitle}>オープンソースライブラリ</Text>
-                }
+                leftContent={<BackButton />}
+                centerContent={<Text style={styles.headerTitle}>オープンソースライブラリ</Text>}
                 rightContent={
                     <View style={styles.iconButton} pointerEvents="none">
                         <ChevronLeft size={28} color="transparent" />
@@ -28,86 +25,80 @@ export default function OpenSourceScreen() {
                 <View style={styles.card}>
                     <Text style={styles.sectionTitle}>このプロジェクト</Text>
                     <View style={styles.divider} />
-                    
-                    <Text style={styles.itemName}>Nekogo</Text>
-                    <Text style={styles.licenseText}>MIT License</Text>
-                    <Text style={styles.descriptionText}>
-                        An open-source Japanese learning application. Copyright (c) 2024 KoukeNeko.
-                        {"\n"}GitHub: https://github.com/KoukeNeko/nekogo
-                    </Text>
+                    <LibraryItem 
+                        name="Nekogo" 
+                        license="MIT License" 
+                        description="An open-source Japanese learning application. Copyright (c) 2024 KoukeNeko." 
+                        url="https://github.com/KoukeNeko/nekogo" 
+                    />
                 </View>
 
                 <View style={styles.card}>
                     <Text style={styles.sectionTitle}>Core Frameworks</Text>
                     <View style={styles.divider} />
-                    
-                    <Text style={styles.itemName}>React & React Native</Text>
-                    <Text style={styles.licenseText}>MIT License</Text>
-                    <Text style={styles.descriptionText}>
-                        Copyright (c) Meta Platforms, Inc. and affiliates.
-                    </Text>
-
+                    <LibraryItem 
+                        name="React & React Native" 
+                        license="MIT License" 
+                        description="Copyright (c) Meta Platforms, Inc. and affiliates." 
+                        url="https://reactnative.dev/" 
+                    />
                     <View style={styles.innerDivider} />
-
-                    <Text style={styles.itemName}>Expo</Text>
-                    <Text style={styles.licenseText}>MIT License</Text>
-                    <Text style={styles.descriptionText}>
-                        Copyright (c) 2015-present 650 Industries, Inc. (dba Expo)
-                    </Text>
+                    <LibraryItem 
+                        name="Expo" 
+                        license="MIT License" 
+                        description="Copyright (c) 2015-present 650 Industries, Inc. (dba Expo)" 
+                        url="https://expo.dev/" 
+                    />
                 </View>
 
                 <View style={styles.card}>
                     <Text style={styles.sectionTitle}>Data & Algorithm</Text>
                     <View style={styles.divider} />
-                    
-                    <Text style={styles.itemName}>OP-SQLite</Text>
-                    <Text style={styles.licenseText}>MIT License</Text>
-                    <Text style={styles.descriptionText}>
-                        High performance React Native SQLite library. Copyright (c) 2021 Oscar Franco.
-                    </Text>
-
+                    <LibraryItem 
+                        name="OP-SQLite" 
+                        license="MIT License" 
+                        description="High performance React Native SQLite library. Copyright (c) 2021 Oscar Franco." 
+                        url="https://github.com/OP-Engineering/op-sqlite" 
+                    />
                     <View style={styles.innerDivider} />
-
-                    <Text style={styles.itemName}>ts-fsrs</Text>
-                    <Text style={styles.licenseText}>MIT License</Text>
-                    <Text style={styles.descriptionText}>
-                        Free Spaced Repetition Scheduler (FSRS) implementation. Copyright (c) 2023 open-spaced-repetition.
-                    </Text>
+                    <LibraryItem 
+                        name="ts-fsrs" 
+                        license="MIT License" 
+                        description="Free Spaced Repetition Scheduler (FSRS) implementation. Copyright (c) 2023 open-spaced-repetition." 
+                        url="https://github.com/open-spaced-repetition/ts-fsrs" 
+                    />
                 </View>
 
                 <View style={styles.card}>
                     <Text style={styles.sectionTitle}>UI & Animation</Text>
                     <View style={styles.divider} />
-
-                    <Text style={styles.itemName}>React Native Reanimated</Text>
-                    <Text style={styles.licenseText}>MIT License</Text>
-                    <Text style={styles.descriptionText}>
-                        Copyright (c) 2020 Software Mansion
-                    </Text>
-
+                    <LibraryItem 
+                        name="React Native Reanimated" 
+                        license="MIT License" 
+                        description="Copyright (c) 2020 Software Mansion" 
+                        url="https://github.com/software-mansion/react-native-reanimated" 
+                    />
                     <View style={styles.innerDivider} />
-
-                    <Text style={styles.itemName}>Lucide React Native</Text>
-                    <Text style={styles.licenseText}>ISC License</Text>
-                    <Text style={styles.descriptionText}>
-                        Beautiful & consistent icons. Copyright (c) 2022 Lucide Contributors.
-                    </Text>
-
+                    <LibraryItem 
+                        name="Lucide React Native" 
+                        license="ISC License" 
+                        description="Beautiful & consistent icons. Copyright (c) 2022 Lucide Contributors." 
+                        url="https://lucide.dev/" 
+                    />
                     <View style={styles.innerDivider} />
-
-                    <Text style={styles.itemName}>React Native SVG</Text>
-                    <Text style={styles.licenseText}>MIT License</Text>
-                    <Text style={styles.descriptionText}>
-                        SVG library for React Native. Copyright (c) 2015 Horcrux.
-                    </Text>
-
+                    <LibraryItem 
+                        name="React Native SVG" 
+                        license="MIT License" 
+                        description="SVG library for React Native. Copyright (c) 2015 Horcrux." 
+                        url="https://github.com/software-mansion/react-native-svg" 
+                    />
                     <View style={styles.innerDivider} />
-
-                    <Text style={styles.itemName}>Gorhom Bottom Sheet</Text>
-                    <Text style={styles.licenseText}>MIT License</Text>
-                    <Text style={styles.descriptionText}>
-                        A performant interactive bottom sheet with fully configurable options. Copyright (c) 2020 Mo Gorhom.
-                    </Text>
+                    <LibraryItem 
+                        name="Gorhom Bottom Sheet" 
+                        license="MIT License" 
+                        description="A performant interactive bottom sheet with fully configurable options. Copyright (c) 2020 Mo Gorhom." 
+                        url="https://github.com/gorhom/react-native-bottom-sheet" 
+                    />
                 </View>
 
             </ScrollView>
@@ -158,22 +149,5 @@ const styles = StyleSheet.create({
         backgroundColor: '#2E3135',
         marginVertical: Spacing.three,
         opacity: 0.5,
-    },
-    itemName: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: Colors.dark.text,
-        marginBottom: Spacing.one,
-    },
-    licenseText: {
-        fontSize: 14,
-        fontWeight: '500',
-        color: '#68A5FF',
-        marginBottom: Spacing.two,
-    },
-    descriptionText: {
-        fontSize: 14,
-        color: Colors.dark.textSecondary,
-        lineHeight: 20,
     }
 });

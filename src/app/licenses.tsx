@@ -1,11 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
 import { Colors, Spacing, Fonts, BORDER_RADIUS } from '../constants/theme';
 import { AppBar } from '../components/ui/AppBar';
 import { BackButton } from '../components/ui/BackButton';
+import { LibraryItem } from '../components/ui/LibraryItem';
 
 export default function LicensesScreen() {
     const router = useRouter();
@@ -13,12 +14,8 @@ export default function LicensesScreen() {
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
             <AppBar
-                leftContent={
-                    <BackButton />
-                }
-                centerContent={
-                    <Text style={styles.headerTitle}>ライセンス</Text>
-                }
+                leftContent={<BackButton />}
+                centerContent={<Text style={styles.headerTitle}>ライセンス</Text>}
                 rightContent={
                     <View style={styles.iconButton} pointerEvents="none">
                         <ChevronLeft size={28} color="transparent" />
@@ -31,81 +28,78 @@ export default function LicensesScreen() {
                 <View style={styles.card}>
                     <Text style={styles.sectionTitle}>フォント (Fonts)</Text>
                     <View style={styles.divider} />
-                    <Text style={styles.itemName}>Source Han Serif (思源宋体)</Text>
-                    <Text style={styles.licenseText}>SIL Open Font License 1.1</Text>
-                    <Text style={styles.descriptionText}>
-                        Copyright 2017-2021 Adobe Systems Incorporated (http://www.adobe.com/), with Reserved Font Name 'Source'.
-                    </Text>
+                    <LibraryItem 
+                        name="Source Han Serif (思源宋体)" 
+                        license="SIL Open Font License 1.1" 
+                        description="Copyright 2017-2021 Adobe Systems Incorporated (http://www.adobe.com/), with Reserved Font Name 'Source'." 
+                        url="https://github.com/adobe-fonts/source-han-serif" 
+                    />
                 </View>
 
                 <View style={styles.card}>
                     <Text style={styles.sectionTitle}>辞書データ (Dictionaries)</Text>
                     <View style={styles.divider} />
                     
-                    <Text style={styles.itemName}>JMdict / KANJIDIC2</Text>
-                    <Text style={styles.licenseText}>EDRDG License</Text>
-                    <Text style={styles.descriptionText}>
-                        This package uses the JMdict and KANJIDIC2 dictionary files. These files are the property of the Electronic Dictionary Research and Development Group, and are used in conformance with the Group's licence.
-                    </Text>
-
+                    <LibraryItem 
+                        name="JMdict / KANJIDIC2" 
+                        license="EDRDG License" 
+                        description="This package uses the JMdict and KANJIDIC2 dictionary files. These files are the property of the Electronic Dictionary Research and Development Group, and are used in conformance with the Group's licence." 
+                        url="http://www.edrdg.org/" 
+                    />
                     <View style={styles.innerDivider} />
-
-                    <Text style={styles.itemName}>JmdictFurigana</Text>
-                    <Text style={styles.licenseText}>Creative Commons Attribution-Share Alike 4.0</Text>
-                    <Text style={styles.descriptionText}>
-                        Furigana alignment data by Doublevil, derived from JMdict (EDRDG).
-                    </Text>
-
+                    <LibraryItem 
+                        name="JmdictFurigana" 
+                        license="Creative Commons Attribution-Share Alike 4.0" 
+                        description="Furigana alignment data by Doublevil, derived from JMdict (EDRDG)." 
+                        url="https://github.com/Doublevil/JmdictFurigana" 
+                    />
                     <View style={styles.innerDivider} />
-
-                    <Text style={styles.itemName}>KanjiVG</Text>
-                    <Text style={styles.licenseText}>Creative Commons Attribution-Share Alike 3.0</Text>
-                    <Text style={styles.descriptionText}>
-                        Copyright (C) 2009-2024 Ulrich Apel.
-                    </Text>
-
+                    <LibraryItem 
+                        name="KanjiVG" 
+                        license="Creative Commons Attribution-Share Alike 3.0" 
+                        description="Copyright (C) 2009-2024 Ulrich Apel." 
+                        url="https://kanjivg.tagaini.net/" 
+                    />
                     <View style={styles.innerDivider} />
-
-                    <Text style={styles.itemName}>Tanaka Corpus (Tatoeba)</Text>
-                    <Text style={styles.licenseText}>CC BY 2.0 FR</Text>
-                    <Text style={styles.descriptionText}>
-                        Example sentences are from the Tanaka Corpus, distributed via the EDRDG and the Tatoeba Project.
-                    </Text>
-
+                    <LibraryItem 
+                        name="Tanaka Corpus (Tatoeba)" 
+                        license="CC BY 2.0 FR" 
+                        description="Example sentences are from the Tanaka Corpus, distributed via the EDRDG and the Tatoeba Project." 
+                        url="https://tatoeba.org/" 
+                    />
                     <View style={styles.innerDivider} />
-
-                    <Text style={styles.itemName}>UniDic</Text>
-                    <Text style={styles.licenseText}>BSD 3-Clause</Text>
-                    <Text style={styles.descriptionText}>
-                        Pitch accent (accent type) data from UniDic, by the National Institute for Japanese Language and Linguistics (NINJAL), via fugashi and unidic-lite.
-                    </Text>
-
+                    <LibraryItem 
+                        name="UniDic" 
+                        license="BSD 3-Clause" 
+                        description="Pitch accent (accent type) data from UniDic, by the National Institute for Japanese Language and Linguistics (NINJAL), via fugashi and unidic-lite." 
+                        url="https://clrd.ninjal.ac.jp/unidic/" 
+                    />
                     <View style={styles.innerDivider} />
-
-                    <Text style={styles.itemName}>pyopenjtalk / Open JTalk</Text>
-                    <Text style={styles.licenseText}>Modified BSD License</Text>
-                    <Text style={styles.descriptionText}>
-                        Compound-word pitch accent estimation via pyopenjtalk, built on Open JTalk and the NAIST Japanese Dictionary.
-                    </Text>
+                    <LibraryItem 
+                        name="pyopenjtalk / Open JTalk" 
+                        license="Modified BSD License" 
+                        description="Compound-word pitch accent estimation via pyopenjtalk, built on Open JTalk and the NAIST Japanese Dictionary." 
+                        url="https://github.com/r9y9/pyopenjtalk" 
+                    />
                 </View>
 
                 <View style={styles.card}>
                     <Text style={styles.sectionTitle}>語彙データ (Vocabulary)</Text>
                     <View style={styles.divider} />
 
-                    <Text style={styles.itemName}>JLPT Vocabulary Lists</Text>
-                    <Text style={styles.licenseText}>CC BY / MIT</Text>
-                    <Text style={styles.descriptionText}>
-                        JLPT N1–N5 vocabulary, readings and meanings from tanos.co.uk (Jonathan Waller, CC BY), packaged by open-anki-jlpt-decks (Jamie Sinclair, MIT).
-                    </Text>
-
+                    <LibraryItem 
+                        name="JLPT Vocabulary Lists" 
+                        license="CC BY / MIT" 
+                        description="JLPT N1–N5 vocabulary, readings and meanings from tanos.co.uk (Jonathan Waller, CC BY), packaged by open-anki-jlpt-decks (Jamie Sinclair, MIT)." 
+                        url="https://github.com/jamiesinclair/open-anki-jlpt-decks" 
+                    />
                     <View style={styles.innerDivider} />
-
-                    <Text style={styles.itemName}>wordfreq</Text>
-                    <Text style={styles.licenseText}>Apache License 2.0</Text>
-                    <Text style={styles.descriptionText}>
-                        Word frequency ranking by wordfreq (Robyn Speer), aggregated from multiple corpora.
-                    </Text>
+                    <LibraryItem 
+                        name="wordfreq" 
+                        license="Apache License 2.0" 
+                        description="Word frequency ranking by wordfreq (Robyn Speer), aggregated from multiple corpora." 
+                        url="https://github.com/rspeer/wordfreq" 
+                    />
                 </View>
 
             </ScrollView>
@@ -155,22 +149,5 @@ const styles = StyleSheet.create({
         backgroundColor: '#2E3135',
         marginVertical: Spacing.three,
         opacity: 0.5,
-    },
-    itemName: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: Colors.dark.text,
-        marginBottom: Spacing.one,
-    },
-    licenseText: {
-        fontSize: 14,
-        fontWeight: '500',
-        color: '#68A5FF',
-        marginBottom: Spacing.two,
-    },
-    descriptionText: {
-        fontSize: 14,
-        color: Colors.dark.textSecondary,
-        lineHeight: 20,
     }
 });
