@@ -203,7 +203,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: Spacing.three,
     paddingTop: Spacing.two,
-    paddingBottom: 120,
+    paddingBottom: 140, // 內容要滑過浮層 Nav bar（漸層），底部需留高於 bar 的空間
   },
   summaryRow: {
     flexDirection: 'row',

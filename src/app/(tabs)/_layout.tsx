@@ -2,6 +2,7 @@ import { Tabs } from "expo-router";
 import { Colors } from "../../constants/theme";
 import { Home, Layers, BarChart2, User } from "lucide-react-native";
 import { StyleSheet, Platform, Pressable, View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   useAnimatedStyle,
@@ -21,6 +22,13 @@ const POP_WIND_UP_MS = 70;
 const PRESS_SQUISH_SCALE = 0.9;
 // 藥丸底色：品牌橘的低透明 tonal（對應 M3 secondaryContainer 角色）。
 const PILL_COLOR = 'rgba(255, 107, 53, 0.22)';
+// Spotify 式 nav bar 垂直漸層：上緣近全透（看得到內容）→ 下緣近實色（背景色 #0B0C10）。
+const NAV_GRADIENT_COLORS = [
+  'rgba(11, 12, 16, 0.02)',
+  'rgba(11, 12, 16, 0.78)',
+  'rgba(11, 12, 16, 0.99)',
+] as const;
+const NAV_GRADIENT_LOCATIONS = [0, 0.45, 1] as const;
 
 /**
  * Material 3 Expressive 的分頁圖示：聚焦時藥丸展開 + icon 縮放彈跳（squash & stretch pop）。
@@ -116,11 +124,13 @@ export default function TabLayout() {
           animation: 'spring',
           config: SPRING_SPATIAL_DEFAULT,
         },
-        // Android：M3 Expressive nav bar（surface container 底、無頂線、藥丸 indicator、標籤在下）。
+        // Android：Spotify 式浮層 nav bar — 絕對定位讓內容從底下滑過，
+        // 背景是垂直漸層（上緣近全透可見內容 → 下緣近實色），藥丸 indicator、標籤在下。
         // iOS：維持原本實色 + 頂線樣式。
         tabBarStyle: Platform.OS === 'android'
           ? {
-              backgroundColor: Colors.dark.backgroundElement,
+              position: 'absolute',
+              backgroundColor: 'transparent',
               borderTopWidth: 0,
               elevation: 0,
               height: 80 + insets.bottom,
@@ -135,6 +145,15 @@ export default function TabLayout() {
               paddingBottom: 16,
               paddingTop: 10,
             },
+        tabBarBackground: Platform.OS === 'android'
+          ? () => (
+              <LinearGradient
+                colors={NAV_GRADIENT_COLORS}
+                locations={NAV_GRADIENT_LOCATIONS}
+                style={StyleSheet.absoluteFill}
+              />
+            )
+          : undefined,
         // Android：自訂分頁按鈕 — 移除預設圓形 ripple，改為 M3E 的按壓壓縮＋放開回彈。
         tabBarButton: Platform.OS === 'android'
           ? (props) => <ExpressiveTabButton {...props} />

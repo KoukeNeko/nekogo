@@ -351,6 +351,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: Spacing.three,
+    paddingBottom: 140, // 內容要滑過浮層 Nav bar（漸層），底部需留高於 bar 的空間
   },
   selectorChip: {
     flexDirection: 'row',
