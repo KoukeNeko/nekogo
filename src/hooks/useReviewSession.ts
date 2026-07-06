@@ -58,7 +58,8 @@ export const useReviewSession = (deckId?: string, enabled: boolean = true) => {
     let cancelled = false;
     const loadCards = async () => {
       try {
-        const dueCards = await getDueCards(20, 50, deckId); // 至多 50 複習卡 + 20 新卡
+        // 新卡只從速讀（スキミング）引入；閃卡只複習到期卡（newLimit=0）。
+        const dueCards = await getDueCards(0, 50, deckId);
         if (!cancelled) {
           setDeck(dueCards);
           setLoadError(false);
@@ -169,7 +170,7 @@ export const useReviewSession = (deckId?: string, enabled: boolean = true) => {
     setCurrentIndex(0);
     detailLoadedRef.current.clear();
     try {
-      const dueCards = await getDueCards(20, 50, deckId);
+      const dueCards = await getDueCards(0, 50, deckId); // 閃卡只複習；新卡走速讀
       setDeck(dueCards);
       setLoadError(false);
     } catch (error) {
