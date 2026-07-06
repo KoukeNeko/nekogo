@@ -21,7 +21,8 @@ export const CONTENT_ALIAS = 'content';
 // 版本化檔名：內容庫改版或副本需強制重建時 bump，下次啟動會重新複製，不動使用者主庫 cards/revlog。
 // v13：明日 讀音＝kuromoji 基準（あした）＋逐句 あす override（見 apply-asu-overrides.mjs）。漢字繁中 kanji.meanings_zh 已撤下（程式不讀取；DB 舊欄位保留無害）。
 // v14：詞條策展修正第一批（apply-vocab-curation.mjs）：tanos N2 假名詞頭 する→刷る（含 furigana、pitch [1]）。
-const CONTENT_DB_FILE = 'kioku-content-v14.db';
+// v15：例句連結策展（apply-example-curation.mjs）：讀音錯配剪枝 6,063 條＋37 句 RESCUE 修 furigana。
+const CONTENT_DB_FILE = 'kioku-content-v15.db';
 // 舊版副本檔名：複製新版時順手清掉，避免 134MB 級的孤兒檔佔用空間。
 const STALE_CONTENT_DB_FILES = [
   'kioku-content-v4.db',
@@ -34,6 +35,7 @@ const STALE_CONTENT_DB_FILES = [
   'kioku-content-v11.db',
   'kioku-content-v12.db',
   'kioku-content-v13.db',
+  'kioku-content-v14.db',
 ];
 const DEST_URI = `${FileSystem.documentDirectory}${CONTENT_DB_FILE}`;
 const DEST_PATH = DEST_URI.replace('file://', '');
