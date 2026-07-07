@@ -24,7 +24,8 @@ export const CONTENT_ALIAS = 'content';
 // v15：例句連結策展（apply-example-curation.mjs）：讀音錯配剪枝 6,063 條＋37 句 RESCUE 修 furigana。
 // v16：高風險詞性（副詞/感嘆詞）繁中重譯 1,253 筆（Sonnet 級人工重譯：翻日文詞本身、防假朋友；強いて/日中/どう 等壞譯修正）。
 // v17：繁中重譯續批（依頻率補常用未翻詞＋壞譯）共 4,493 筆入 gloss_zh；含副詞/感嘆詞/助詞/常用名詞（無理やり、乾杯、最近、季節、真実…）。
-const CONTENT_DB_FILE = 'kioku-content-v17.db';
+// v18：再補常用名詞/助詞 1,200 筆（部門、違法、例外、本質、貴族、狂気、戰術、神秘…），gloss_zh 繁中重譯累計 5,693 筆；分隔符統一全形「；」。
+const CONTENT_DB_FILE = 'kioku-content-v18.db';
 // 舊版副本檔名：複製新版時順手清掉，避免 134MB 級的孤兒檔佔用空間。
 const STALE_CONTENT_DB_FILES = [
   'kioku-content-v4.db',
@@ -40,6 +41,7 @@ const STALE_CONTENT_DB_FILES = [
   'kioku-content-v14.db',
   'kioku-content-v15.db',
   'kioku-content-v16.db',
+  'kioku-content-v17.db',
 ];
 const DEST_URI = `${FileSystem.documentDirectory}${CONTENT_DB_FILE}`;
 const DEST_PATH = DEST_URI.replace('file://', '');
