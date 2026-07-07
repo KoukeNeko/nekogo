@@ -25,7 +25,8 @@ export const CONTENT_ALIAS = 'content';
 // v16：高風險詞性（副詞/感嘆詞）繁中重譯 1,253 筆（Sonnet 級人工重譯：翻日文詞本身、防假朋友；強いて/日中/どう 等壞譯修正）。
 // v17：繁中重譯續批（依頻率補常用未翻詞＋壞譯）共 4,493 筆入 gloss_zh；含副詞/感嘆詞/助詞/常用名詞（無理やり、乾杯、最近、季節、真実…）。
 // v18：再補常用名詞/助詞 1,200 筆（部門、違法、例外、本質、貴族、狂気、戰術、神秘…），gloss_zh 繁中重譯累計 5,693 筆；分隔符統一全形「；」。
-const CONTENT_DB_FILE = 'kioku-content-v18.db';
+// v19：--risk 佇列（副詞/感嘆詞/連接詞/助詞）全數翻畢，再補 6,724 筆入 gloss_zh，繁中重譯累計 12,417 筆；含大量常用詞（館内、悪性、前代未聞、共働き、自明、過渡期、風光明媚、当意即妙…）與擬聲擬態詞、それ／いずれ／ながら等連接詞助詞語感標註。
+const CONTENT_DB_FILE = 'kioku-content-v19.db';
 // 舊版副本檔名：複製新版時順手清掉，避免 134MB 級的孤兒檔佔用空間。
 const STALE_CONTENT_DB_FILES = [
   'kioku-content-v4.db',
@@ -42,6 +43,7 @@ const STALE_CONTENT_DB_FILES = [
   'kioku-content-v15.db',
   'kioku-content-v16.db',
   'kioku-content-v17.db',
+  'kioku-content-v18.db',
 ];
 const DEST_URI = `${FileSystem.documentDirectory}${CONTENT_DB_FILE}`;
 const DEST_PATH = DEST_URI.replace('file://', '');
