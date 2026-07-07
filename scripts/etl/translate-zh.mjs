@@ -1,40 +1,52 @@
 // 內容庫繁中翻譯（第二階段：LLM 補全）。
 //
 // 翻譯兩類內容成台灣繁體中文，直接寫回 assets/db/kioku-content.db：
-//   - vocab.gloss_zh：JMdict 英文釋義 → 辭典風格繁中（附日文詞頭＋讀音當語境；intro_rank 順序，常用詞先翻）
+//   - vocab.gloss_zh：翻「日文詞」本身（餵 word+reading+pos+完整 JMdict 義項；防假朋友；intro_rank 順序）
 //   - example.zh   ：例句（從日文原句直翻、英文當參考；Tatoeba 人譯已先由 build-example-zh.mjs 填入）
 //
-// 冪等 & 可續跑：只選 zh/gloss_zh IS NULL 的列、逐批 UPDATE；中斷重跑會從缺的繼續。
+// 冪等 & 可續跑：只選 IS NULL 的列、逐批 UPDATE；中斷重跑會從缺的繼續。
 // 用法：
 //   ANTHROPIC_API_KEY=sk-... node scripts/etl/translate-zh.mjs --target vocab|example|all [--limit N]
-//   --limit N   只翻前 N 筆（煙霧測試用）
+//   --limit N     只翻前 N 筆（煙霧測試用）
+//   --rebuild     全量重譯 vocab 至暫存欄 gloss_zh_v2（不動現有 gloss_zh、可續跑）
+//   --promote     把 gloss_zh_v2 覆寫回 gloss_zh（重譯驗收後執行；不需 API key）
 //
-// 模型：claude-haiku-4-5（MODEL 環境變數可覆蓋）。temperature 0、嚴格 JSON 輸出。
+// 模型：claude-sonnet-5（MODEL 環境變數可覆蓋）。關閉 thinking（Sonnet 5 拒非預設 temperature）、嚴格 JSON 輸出。
 
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const APP_ROOT = join(SCRIPT_DIR, '..', '..');
+const CACHE_DIR = join(SCRIPT_DIR, '.cache');
 const CONTENT_DB_PATH = join(APP_ROOT, 'assets', 'db', 'kioku-content.db');
 
 const API_URL = 'https://api.anthropic.com/v1/messages';
-const MODEL = process.env.MODEL ?? 'claude-haiku-4-5';
+// Sonnet 5：日中語感較 Haiku 穩，且支援關閉 thinking（機械式翻譯不需推理，省 token）。
+const MODEL = process.env.MODEL ?? 'claude-sonnet-5';
 const BATCH_SIZE = 40;
 const CONCURRENCY = 6;
 const MAX_RETRIES = 5;
-// Haiku 4.5 定價（USD / M tokens），僅用於進度顯示的成本估算。
-const PRICE_IN_PER_M = 1;
-const PRICE_OUT_PER_M = 5;
+// Sonnet 5 定價（USD / M tokens；導入價 $2/$10 至 2026-08-31，此處用標準價避免低估）。僅供進度顯示。
+const PRICE_IN_PER_M = 3;
+const PRICE_OUT_PER_M = 15;
 
-const SYSTEM_PROMPT = `你是專業的日中辭典編輯，目標讀者是台灣的日語學習者。
+const SYSTEM_PROMPT = `你是專業的日中辭典編輯，替台灣的日語學習者撰寫辭典釋義。
+
 規則：
-- 一律使用台灣慣用的繁體中文（例：影片不用視頻、品質不用質量、軟體不用軟件）。
-- vocab（詞義）：辭典風格、精簡；多個義項以「；」分隔，對應原文的分號；不要加句號結尾；不要重複日文詞本身。
+- 一律使用台灣慣用的繁體中文用語（例：影片不用視頻、品質不用質量、軟體不用軟件、程式不用程序）。
+- 翻譯「日文詞」本身，而非字面翻英文：以 word/reading/pos 判定語意，英文 senses_en 僅為輔助提示。
+- 慎防「假朋友」：日文漢字詞的中文常與字面不同（日文「勉強」＝學習、中文「勉強」＝硬要；日文「大丈夫」＝沒問題）。務必譯出該日文詞的實際意義，不可照抄漢字。
+- vocab（詞義）：辭典風格、精簡；多個義項以「；」分隔，涵蓋主要義項；不加句號結尾；不重複同義詞；不把日文詞本身當譯文。
+- 副詞／虛詞／感嘆詞：譯出功能與語感，勿硬套名詞（例：どう〔喝止馬〕＝吁；えっと＝嗯…（張口思考的發語詞））。
 - example（例句）：以日文原句為準直接翻譯（英文僅供參考），口語自然、忠實原意。
-- 只輸出 JSON 陣列，格式：[{"id": <數字>, "zh": "<翻譯>"}, ...]，不要任何其他文字。`;
+- 只輸出 JSON 陣列，格式：[{"id": <id>, "zh": "<翻譯>"}, ...]，不要任何其他文字。
+
+vocab 範例（供格式與風格參考）：
+輸入：[{"id":1,"word":"強いて","reading":"しいて","pos":"adv","senses_en":["by force"]}]
+輸出：[{"id":1,"zh":"硬要；勉強地說；刻意"}]`;
 
 const parseArgs = () => {
   const args = process.argv.slice(2);
@@ -45,6 +57,10 @@ const parseArgs = () => {
   return {
     target: get('--target') ?? 'all',
     limit: get('--limit') ? Number(get('--limit')) : Infinity,
+    // --rebuild：全量重譯 vocab 至暫存欄 gloss_zh_v2（可續跑、不動現有 gloss_zh）。
+    // --promote：把 gloss_zh_v2 覆寫回 gloss_zh（重譯驗收後執行）。
+    rebuild: args.includes('--rebuild'),
+    promote: args.includes('--promote'),
   };
 };
 
@@ -66,7 +82,9 @@ const callClaude = async (userContent) => {
       body: JSON.stringify({
         model: MODEL,
         max_tokens: 8000,
-        temperature: 0,
+        // Sonnet 5 拒絕非預設 temperature（原 temperature:0 會 400）；改以關閉 thinking 求穩定：
+        // 機械式辭典翻譯不需推理，關閉可省 token、避免 adaptive thinking 預設開啟。
+        thinking: { type: 'disabled' },
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: userContent }],
       }),
@@ -95,14 +113,45 @@ const parseBatchResult = (text) => {
   return parsed;
 };
 
+// JMdict 完整義項索引：id → { senses:[英文義項…], pos }。
+// DB 的 vocab.gloss 只存了首義（build-content-db 取 sense[0]），47% 多義詞被截斷；
+// 翻譯時改從 cache 撈完整義項餵給模型，讓多義詞不再遺漏。首次呼叫才載入（~1-2s）。
+let jmdictIndex = null;
+const loadJmdictIndex = () => {
+  if (jmdictIndex) return jmdictIndex;
+  jmdictIndex = new Map();
+  const dict = JSON.parse(readFileSync(join(CACHE_DIR, 'jmdict-eng-full.json'), 'utf-8'));
+  const posTags = dict.tags ?? {};
+  for (const word of dict.words) {
+    const senses = [];
+    const posSet = new Set();
+    for (const sense of word.sense ?? []) {
+      const gloss = (sense.gloss ?? []).filter((g) => g.lang === 'eng').map((g) => g.text).join('; ');
+      if (gloss) senses.push(gloss);
+      for (const code of sense.partOfSpeech ?? []) posSet.add(posTags[code] ?? code);
+    }
+    if (senses.length > 0) jmdictIndex.set(word.id, { senses, pos: [...posSet].join(', ') });
+  }
+  return jmdictIndex;
+};
+
 const translateVocabBatch = async (rows) => {
-  const items = rows.map((row) => ({
-    id: row.id,
-    word: row.expression,
-    reading: row.reading,
-    gloss_en: row.gloss,
-  }));
-  const prompt = `把下列日文單字的英文釋義翻成台灣繁體中文辭典釋義（word/reading 是該單字與讀音，供判斷語境；只翻 gloss_en）：\n${JSON.stringify(items, null, 0)}`;
+  const index = loadJmdictIndex();
+  const items = rows.map((row) => {
+    // JMdict 詞（id 為 JMdict word id）取完整義項；tanos 合成詞（t-*，無 JMdict entry）退回 DB 首義。
+    const enriched = index.get(row.id);
+    return {
+      id: row.id,
+      word: row.expression,
+      reading: row.reading,
+      pos: enriched?.pos ?? row.pos ?? '',
+      senses_en: enriched?.senses ?? [row.gloss],
+    };
+  });
+  const prompt =
+    `翻譯下列日文單字為台灣繁體中文辭典釋義。欄位：word=詞、reading=讀音、pos=詞性、senses_en=完整英文義項（可能多個，代表不同義項）。\n` +
+    `請翻「日文詞」本身：以 word+reading+pos 判定語意，senses_en 為輔助；多義項以「；」分隔並涵蓋主要義項。\n\n` +
+    JSON.stringify(items, null, 0);
   return parseBatchResult(await callClaude(prompt));
 };
 
@@ -134,10 +183,11 @@ const runTarget = async (db, { label, rows, translateBatch, update }) => {
       const batch = batches[index];
       try {
         const results = await translateBatch(batch);
-        const byId = new Map(results.map((r) => [Number(r.id), String(r.zh ?? '').trim()]));
+        // 以字串為 key：vocab id 含 tanos 合成詞（t-*），Number() 會全變 NaN 而互相覆蓋。
+        const byId = new Map(results.map((r) => [String(r.id), String(r.zh ?? '').trim()]));
         db.exec('BEGIN');
         for (const row of batch) {
-          const zh = byId.get(Number(row.id));
+          const zh = byId.get(String(row.id));
           if (zh) update.run(zh, row.id);
         }
         db.exec('COMMIT');
@@ -169,15 +219,31 @@ const ensureColumn = (db, table, column) => {
 };
 
 const run = async () => {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    console.error('❌ 請設定 ANTHROPIC_API_KEY 環境變數');
-    process.exit(1);
-  }
   if (!existsSync(CONTENT_DB_PATH)) {
     console.error(`❌ 找不到內容庫：${CONTENT_DB_PATH}`);
     process.exit(1);
   }
-  const { target, limit } = parseArgs();
+  const { target, limit, rebuild, promote } = parseArgs();
+
+  // --promote：把重譯結果 gloss_zh_v2 覆寫回 gloss_zh（不需 API key）。驗收後執行。
+  if (promote) {
+    const db = new DatabaseSync(CONTENT_DB_PATH);
+    const cols = db.prepare('PRAGMA table_info(vocab)').all();
+    if (!cols.some((c) => c.name === 'gloss_zh_v2')) {
+      console.error('❌ 無 gloss_zh_v2 欄位，尚未重譯，無可提升。');
+      process.exit(1);
+    }
+    db.exec("UPDATE vocab SET gloss_zh = gloss_zh_v2 WHERE gloss_zh_v2 IS NOT NULL AND gloss_zh_v2 != ''");
+    const promoted = db.prepare("SELECT COUNT(*) AS c FROM vocab WHERE gloss_zh_v2 IS NOT NULL AND gloss_zh_v2 != ''").get().c;
+    db.close();
+    console.log(`✅ 已提升 ${promoted} 筆 gloss_zh_v2 → gloss_zh。（欄位 gloss_zh_v2 保留，供比對；確認無誤後可另行 DROP。）`);
+    return;
+  }
+
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.error('❌ 請設定 ANTHROPIC_API_KEY 環境變數');
+    process.exit(1);
+  }
   const db = new DatabaseSync(CONTENT_DB_PATH);
   ensureColumn(db, 'vocab', 'gloss_zh');
   ensureColumn(db, 'example', 'zh');
@@ -186,18 +252,23 @@ const run = async () => {
 
   if (target === 'vocab' || target === 'all') {
     // 常用詞先翻（intro_rank 升冪），中斷時已翻的都是最有價值的部分。
+    // rebuild：全量重譯寫入暫存欄 gloss_zh_v2（以 v2 IS NULL 續跑、不動現有 gloss_zh）。
+    // 一般：只補未翻（gloss_zh IS NULL）。
+    const col = rebuild ? 'gloss_zh_v2' : 'gloss_zh';
+    if (rebuild) ensureColumn(db, 'vocab', 'gloss_zh_v2');
     const rows = db
-      .prepare(`SELECT id, expression, reading, gloss FROM vocab WHERE gloss_zh IS NULL ORDER BY intro_rank IS NULL, intro_rank${limitSql}`)
+      .prepare(`SELECT id, expression, reading, gloss, pos FROM vocab WHERE ${col} IS NULL ORDER BY intro_rank IS NULL, intro_rank${limitSql}`)
       .all();
     await runTarget(db, {
-      label: 'vocab 詞義',
+      label: rebuild ? 'vocab 詞義（重譯→v2）' : 'vocab 詞義',
       rows,
       translateBatch: translateVocabBatch,
-      update: db.prepare('UPDATE vocab SET gloss_zh = ? WHERE id = ? AND gloss_zh IS NULL'),
+      update: db.prepare(`UPDATE vocab SET ${col} = ? WHERE id = ? AND ${col} IS NULL`),
     });
   }
 
-  if (target === 'example' || target === 'all') {
+  // rebuild 只針對 vocab；例句已近全譯，重譯屬另一回事，跳過。
+  if (!rebuild && (target === 'example' || target === 'all')) {
     const rows = db.prepare(`SELECT id, jp, en FROM example WHERE zh IS NULL${limitSql}`).all();
     await runTarget(db, {
       label: 'example 例句',
@@ -207,13 +278,15 @@ const run = async () => {
     });
   }
 
-  const glossDone = db.prepare("SELECT COUNT(*) AS c FROM vocab WHERE gloss_zh IS NOT NULL AND gloss_zh != ''").get().c;
+  const glossCol = rebuild ? 'gloss_zh_v2' : 'gloss_zh';
+  const glossDone = db.prepare(`SELECT COUNT(*) AS c FROM vocab WHERE ${glossCol} IS NOT NULL AND ${glossCol} != ''`).get().c;
   const glossTotal = db.prepare('SELECT COUNT(*) AS c FROM vocab').get().c;
   const zhDone = db.prepare("SELECT COUNT(*) AS c FROM example WHERE zh IS NOT NULL AND zh != ''").get().c;
   const zhTotal = db.prepare('SELECT COUNT(*) AS c FROM example').get().c;
   db.close();
-  console.log(`\n覆蓋率：gloss_zh ${glossDone}/${glossTotal}、example.zh ${zhDone}/${zhTotal}`);
+  console.log(`\n覆蓋率：${glossCol} ${glossDone}/${glossTotal}、example.zh ${zhDone}/${zhTotal}`);
   console.log(`token 用量：in ${totalIn}、out ${totalOut}`);
+  if (rebuild) console.log('提示：重譯寫入 gloss_zh_v2。抽樣驗收後，執行 `node translate-zh.mjs --promote` 覆寫回 gloss_zh。');
 };
 
 run();
