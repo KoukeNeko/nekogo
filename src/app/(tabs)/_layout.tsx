@@ -121,36 +121,24 @@ export default function TabLayout() {
           animation: 'spring',
           config: SPRING_SPATIAL_DEFAULT,
         },
-        // Android：Spotify 式浮層 nav bar — 絕對定位讓內容從底下滑過，
+        // Spotify 式浮層 nav bar — 絕對定位讓內容從底下滑過，
         // 背景是垂直漸層（上緣近全透可見內容 → 下緣近實色），藥丸 indicator、標籤在下。
-        // iOS：維持原本實色 + 頂線樣式。
-        tabBarStyle: Platform.OS === 'android'
-          ? {
-              position: 'absolute',
-              backgroundColor: 'transparent',
-              borderTopWidth: 0,
-              elevation: 0,
-              height: 80 + insets.bottom,
-              paddingBottom: 12 + insets.bottom,
-              paddingTop: 12,
-            }
-          : {
-              backgroundColor: Colors.dark.background,
-              borderTopColor: '#2E3135',
-              borderTopWidth: 1,
-              height: 85,
-              paddingBottom: 16,
-              paddingTop: 10,
-            },
-        tabBarBackground: Platform.OS === 'android'
-          ? () => (
-              <LinearGradient
-                colors={['rgba(11, 12, 16, 0.02)', 'rgba(11, 12, 16, 0.78)', 'rgba(11, 12, 16, 0.99)']}
-                locations={[0, 0.45, 1]}
-                style={StyleSheet.absoluteFill}
-              />
-            )
-          : undefined,
+        tabBarStyle: {
+          position: 'absolute',
+          backgroundColor: 'transparent',
+          borderTopWidth: 0,
+          elevation: 0,
+          height: Platform.OS === 'ios' ? 40 + insets.bottom : 80 + insets.bottom,
+          paddingBottom: Platform.OS === 'ios' ? insets.bottom : 12 + insets.bottom,
+          paddingTop: Platform.OS === 'ios' ? 2 : 12,
+        },
+        tabBarBackground: () => (
+          <LinearGradient
+            colors={['rgba(11, 12, 16, 0.02)', 'rgba(11, 12, 16, 0.78)', 'rgba(11, 12, 16, 0.99)']}
+            locations={[0, 0.45, 1]}
+            style={StyleSheet.absoluteFill}
+          />
+        ),
         // Android：自訂分頁按鈕 — 移除預設圓形 ripple，改為 M3E 的按壓壓縮＋放開回彈。
         tabBarButton: Platform.OS === 'android'
           ? (props) => <ExpressiveTabButton {...props} />
