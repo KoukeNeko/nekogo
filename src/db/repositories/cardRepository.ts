@@ -30,7 +30,11 @@ const cardRowToFsrs = (row: any): Card =>
 // 雲端內容 + 本機 FSRS → VocabItem。例句/構成漢字延後抓（顯示該卡時，見 useReviewSession）。
 const toVocabItemFromApi = (vocab: ApiVocab, fsrsCard: Card): VocabItem => ({
   id: vocab.id,
-  kanji: vocab.furigana ?? [{ ruby: vocab.expression }],
+  // furigana 為 null 時（如數字形日期詞 １日/ついたち，JmdictFurigana 未收數字形）以整詞讀音當 rt，
+  // 讓卡面 ruby 與讀音行都顯示真正讀音，而非退回 expression（＝上下同字的 bug）。純假名詞不加 rt。
+  kanji: vocab.furigana ?? [
+    { ruby: vocab.expression, ...(vocab.reading && vocab.reading !== vocab.expression ? { rt: vocab.reading } : {}) },
+  ],
   reading: vocab.reading,
   english: vocab.gloss,
   pos: vocab.pos ?? null,
