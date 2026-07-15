@@ -28,6 +28,9 @@ export default function RootLayout() {
     'JetBrainsMono-Regular': JetBrainsMono_400Regular,
     'LINESeed-Regular': require('../../assets/fonts/LINESeedTW_OTF_Rg.otf'),
     'LINESeed-Bold': require('../../assets/fonts/LINESeedTW_OTF_Bd.otf'),
+    // JP 版補 TW 版缺的假名與日文新字體漢字（変・説・戸…），日文為主的文字用這組。
+    'LINESeedJP-Regular': require('../../assets/fonts/LINESeedJP_A_OTF_Rg.otf'),
+    'LINESeedJP-Bold': require('../../assets/fonts/LINESeedJP_A_OTF_Bd.otf'),
   });
 
   // 主庫建表 → 掛載打包的唯讀內容庫 → 為「目標牌組」（預設範圍）成員增量建卡（個人 FSRS 紀錄留本機）。

@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
     typeBadgeText: {
         color: '#68A5FF',
         fontSize: 10,
-        fontWeight: 'bold',
+        fontFamily: Fonts?.lineSeedJPBold,
     },
     confidenceBadge: {
         backgroundColor: '#1D2B22',
@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
     confidenceBadgeText: {
         color: '#7BC98F',
         fontSize: 10,
-        fontWeight: 'bold',
+        fontFamily: Fonts?.lineSeedJPBold,
     },
     confidenceBadgeTextTentative: {
         color: '#E0A458',
@@ -134,17 +134,18 @@ const styles = StyleSheet.create({
     stageForm: {
         color: Colors.dark.text,
         fontSize: 18,
-        fontFamily: Fonts?.lineSeed,
-        fontWeight: 'bold',
+        fontFamily: Fonts?.lineSeedJPBold,
     },
     stageReading: {
         color: Colors.dark.textSecondary,
         fontSize: 12,
+        fontFamily: Fonts?.lineSeedJP,
     },
     stagePeriod: {
         color: '#4F525A',
         fontSize: 10,
         marginLeft: 'auto',
+        fontFamily: Fonts?.lineSeedJP,
     },
     stageNote: {
         color: Colors.dark.textSecondary,

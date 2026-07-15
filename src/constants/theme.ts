@@ -37,6 +37,8 @@ export const Fonts = Platform.select({
     mono: 'JetBrainsMono-Regular',
     lineSeed: 'LINESeed-Regular',
     lineSeedBold: 'LINESeed-Bold',
+    lineSeedJP: 'LINESeedJP-Regular',
+    lineSeedJPBold: 'LINESeedJP-Bold',
   },
   default: {
     sans: 'normal',
@@ -46,6 +48,8 @@ export const Fonts = Platform.select({
     mono: 'JetBrainsMono-Regular',
     lineSeed: 'LINESeed-Regular',
     lineSeedBold: 'LINESeed-Bold',
+    lineSeedJP: 'LINESeedJP-Regular',
+    lineSeedJPBold: 'LINESeedJP-Bold',
   },
   web: {
     sans: 'var(--font-display)',
@@ -54,6 +58,8 @@ export const Fonts = Platform.select({
     mono: 'JetBrainsMono-Regular',
     lineSeed: 'LINESeed-Regular',
     lineSeedBold: 'LINESeed-Bold',
+    lineSeedJP: 'LINESeedJP-Regular',
+    lineSeedJPBold: 'LINESeedJP-Bold',
   },
 });
 
