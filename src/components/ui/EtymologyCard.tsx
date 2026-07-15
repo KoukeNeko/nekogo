@@ -8,8 +8,8 @@ interface EtymologyCardProps {
     etymology: Etymology;
 }
 
-// 「定說」以外的信度以暖色徽章提示讀者：此為學說而非定論。
-const TENTATIVE_CONFIDENCES = ['有力學說', '一說', '俗說'];
+// 「定説」以外的信度以暖色徽章提示讀者：此為學說而非定論（值為日文，與 DB 枚舉一致）。
+const TENTATIVE_CONFIDENCES = ['有力説', '一説', '俗説'];
 
 const openSourceUrl = (url: string) => {
     Linking.openURL(url).catch((error) => console.error('開啟詞源出處連結失敗', error));

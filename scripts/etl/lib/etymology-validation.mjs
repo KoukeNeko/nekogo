@@ -1,7 +1,8 @@
 // vocab_etymology 資料驗證規則（apply 與 verify 共用，單一事實來源）。
 
-export const ORIGIN_TYPES = ['和語音變', '和語轉義', '漢語借詞', '複合詞', '外來語', '擬聲擬態'];
-export const CONFIDENCE_LEVELS = ['定說', '有力學說', '一說', '俗說'];
+// 枚舉值＝畫面徽章文字，一律日文（與 App 的日文 UI 一致）；只有 note／explanation 提供繁中＋英文雙語。
+export const ORIGIN_TYPES = ['音変化', '意味変化', '漢語', '複合語', '外来語', 'オノマトペ'];
+export const CONFIDENCE_LEVELS = ['定説', '有力説', '一説', '俗説'];
 
 // 純ひらがな＋長音符。stage 的 reading 可為 null（外語原詞、中古漢語等無假名讀音時），非 null 則必須符合。
 const HIRAGANA_ONLY = /^[ぁ-ゖー]+$/;
@@ -67,11 +68,11 @@ export const validateEtymologyEntry = (entry, vocabReading) => {
     if (stage.note !== null && (typeof stage.note !== 'string' || stage.note.trim() === '')) {
       errors.push(`stage[${i}].note 須為 null 或非空字串`);
     }
-    for (const englishField of ['period_en', 'note_en']) {
-      const value = stage[englishField];
-      if (value != null && (typeof value !== 'string' || value.trim() === '')) {
-        errors.push(`stage[${i}].${englishField} 須為 null 或非空字串`);
-      }
+    if (stage.note_en != null && (typeof stage.note_en !== 'string' || stage.note_en.trim() === '')) {
+      errors.push(`stage[${i}].note_en 須為 null 或非空字串`);
+    }
+    if ('period_en' in stage) {
+      errors.push(`stage[${i}] 不應有 period_en（period 一律日文、不做雙語）`);
     }
   }
 

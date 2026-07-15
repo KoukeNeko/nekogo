@@ -288,15 +288,14 @@ export const fetchVocabDetail = async (vocabId: string): Promise<ApiVocabDetail>
   return { ...rowToVocab(base), examples, kanji };
 };
 
-// DB 內的 stage 原始形：period/note 為繁中，period_en/note_en 為英文（可缺，缺則退回中文）。
+// DB 內的 stage 原始形：note 為繁中、note_en 為英文（可缺，缺則退回中文）；period 一律日文、不切換。
 interface RawEtymologyStage extends ApiEtymologyStage {
-  period_en?: string | null;
   note_en?: string | null;
 }
 
 /**
  * 單字詞源（語源）。查無資料或內容庫尚無 vocab_etymology 表（舊版副本）皆回傳 null。
- * 內文（說明、stage 的 period/note）依語言設定回傳，缺譯互為 fallback；UI 標籤不受影響。
+ * 僅 note 與 explanation 依語言設定回傳（缺譯退回繁中）；period 與徽章枚舉為日文、不受語言影響。
  */
 export const fetchVocabEtymology = async (vocabId: string): Promise<ApiEtymology | null> => {
   let row: any;
@@ -321,9 +320,8 @@ export const fetchVocabEtymology = async (vocabId: string): Promise<ApiEtymology
     (isEnglish ? en ?? zh : zh) as T | string;
   return {
     originType: row.origin_type,
-    stages: evolution.stages.map(({ period_en, note_en, ...stage }) => ({
+    stages: evolution.stages.map(({ note_en, ...stage }) => ({
       ...stage,
-      period: pickText(stage.period, period_en) as string,
       note: pickText(stage.note, note_en),
     })),
     explanationZh: pickText(row.explanation_zh, row.explanation_en) as string,
