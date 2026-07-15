@@ -5,6 +5,8 @@
 // 生成規範（給 session 內 LLM）：
 //   - 無可靠語源學說 → 該詞輸出 {"n": <n>, "skip": true}，寧缺勿錯。
 //   - evolution.stages 每段 reading 一律純ひらがな（不用羅馬字），最末段 reading 須等於詞條 reading。
+//   - 雙語內文：explanation_zh（台灣繁中）＋ explanation_en 同批產出；stage 的 period/note 另附
+//     period_en/note_en（英文）。App 依語言設定切換，缺譯互為 fallback。
 //   - confidence ∈ 定說|有力學說|一說|俗說；origin_type ∈ 和語音變|和語轉義|漢語借詞|複合詞|外來語|擬聲擬態。
 //   - source：該學說可查證的出處名稱（如「日本国語大辞典」「語源由来辞典」），無明確出處可為 null。
 //   - source_url：出處的 https 連結（App 內可點開）；無則 null。有 source_url 必須同時有 source 名稱。

@@ -44,6 +44,9 @@ export const validateEtymologyEntry = (entry, vocabReading) => {
   } else if (SIMPLIFIED_CHARS.test(entry.explanation_zh)) {
     errors.push(`explanation_zh 含簡體字：${entry.explanation_zh.match(SIMPLIFIED_CHARS)[0]}`);
   }
+  if (entry.explanation_en != null && (typeof entry.explanation_en !== 'string' || entry.explanation_en.trim() === '')) {
+    errors.push('explanation_en 須為 null 或非空字串');
+  }
 
   const stages = entry.evolution?.stages;
   if (!Array.isArray(stages) || stages.length < MIN_STAGES) {
@@ -63,6 +66,12 @@ export const validateEtymologyEntry = (entry, vocabReading) => {
     }
     if (stage.note !== null && (typeof stage.note !== 'string' || stage.note.trim() === '')) {
       errors.push(`stage[${i}].note 須為 null 或非空字串`);
+    }
+    for (const englishField of ['period_en', 'note_en']) {
+      const value = stage[englishField];
+      if (value != null && (typeof value !== 'string' || value.trim() === '')) {
+        errors.push(`stage[${i}].${englishField} 須為 null 或非空字串`);
+      }
     }
   }
 

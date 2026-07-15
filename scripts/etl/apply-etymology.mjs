@@ -68,22 +68,24 @@ db.exec(`CREATE TABLE IF NOT EXISTS vocab_etymology (
   origin_type TEXT NOT NULL,
   evolution TEXT NOT NULL,
   explanation_zh TEXT NOT NULL,
+  explanation_en TEXT,
   confidence TEXT NOT NULL,
   source TEXT,
   source_url TEXT
 )`);
-// 舊表（試批初版）沒有 source_url 欄位；就地補欄避免砍表重建。
-const hasSourceUrl = db
-  .prepare('PRAGMA table_info(vocab_etymology)')
-  .all()
-  .some((column) => column.name === 'source_url');
-if (!hasSourceUrl) {
-  db.exec('ALTER TABLE vocab_etymology ADD COLUMN source_url TEXT');
+// 舊表可能缺後加欄位（source_url、explanation_en）；就地補欄避免砍表重建。
+const existingColumns = new Set(
+  db.prepare('PRAGMA table_info(vocab_etymology)').all().map((column) => column.name),
+);
+for (const lateColumn of ['source_url', 'explanation_en']) {
+  if (!existingColumns.has(lateColumn)) {
+    db.exec(`ALTER TABLE vocab_etymology ADD COLUMN ${lateColumn} TEXT`);
+  }
 }
 
 const insertStmt = db.prepare(
-  `INSERT OR REPLACE INTO vocab_etymology (vocab_id, origin_type, evolution, explanation_zh, confidence, source, source_url)
-   VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  `INSERT OR REPLACE INTO vocab_etymology (vocab_id, origin_type, evolution, explanation_zh, explanation_en, confidence, source, source_url)
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 );
 db.exec('BEGIN');
 for (const { vocabId, entry } of validated) {
@@ -92,6 +94,7 @@ for (const { vocabId, entry } of validated) {
     entry.origin_type,
     JSON.stringify(entry.evolution),
     entry.explanation_zh,
+    entry.explanation_en ?? null,
     entry.confidence,
     entry.source,
     entry.source_url,

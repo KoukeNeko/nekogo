@@ -22,7 +22,7 @@ if (!tableExists) {
 
 const rows = db
   .prepare(
-    `SELECT e.vocab_id, e.origin_type, e.evolution, e.explanation_zh, e.confidence, e.source, e.source_url,
+    `SELECT e.vocab_id, e.origin_type, e.evolution, e.explanation_zh, e.explanation_en, e.confidence, e.source, e.source_url,
             v.expression, v.reading
      FROM vocab_etymology e LEFT JOIN vocab v ON v.id = e.vocab_id`,
   )
@@ -48,6 +48,7 @@ for (const row of rows) {
       origin_type: row.origin_type,
       evolution,
       explanation_zh: row.explanation_zh,
+      explanation_en: row.explanation_en,
       confidence: row.confidence,
       source: row.source,
       source_url: row.source_url,
