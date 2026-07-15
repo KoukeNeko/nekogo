@@ -20,7 +20,10 @@ const get = (flag) => {
 const out = get('--out');
 const limit = Number(get('--limit') ?? 60);
 const risk = args.includes('--risk');
+const noRisk = args.includes('--norisk'); // 排除高風險詞性（＝只挑名詞/動詞/形容詞等，如葛藤這類）
 const hasGloss = args.includes('--hasgloss'); // 只選已有舊中譯者（＝要修的壞譯，非未翻新詞）
+const untranslated = args.includes('--untranslated'); // 只選 gloss_zh 為空者（＝app 顯示英文的那批）
+const jlpt = args.includes('--jlpt'); // 只選 JLPT N1–N5（核心學習詞），依 N5→N1＋頻率排序
 if (!out) {
   console.error('用法：--out <file> [--limit 60] [--risk]');
   process.exit(1);
@@ -45,15 +48,23 @@ const db = new DatabaseSync(CONTENT_DB_PATH, { readOnly: true });
 const cols = db.prepare('PRAGMA table_info(vocab)').all();
 const hasV2 = cols.some((c) => c.name === 'gloss_zh_v2');
 const pendingClause = hasV2 ? 'gloss_zh_v2 IS NULL' : '1=1';
-const riskClause = risk
-  ? "AND (pos LIKE '%adverb%' OR pos LIKE '%interjection%' OR pos LIKE '%conjunction%' OR pos LIKE '%particle%')"
-  : '';
-const glossClause = hasGloss ? "AND gloss_zh IS NOT NULL AND gloss_zh != ''" : '';
+const RISKY_POS = "(pos LIKE '%adverb%' OR pos LIKE '%interjection%' OR pos LIKE '%conjunction%' OR pos LIKE '%particle%')";
+const riskClause = risk ? `AND ${RISKY_POS}` : noRisk ? `AND NOT ${RISKY_POS}` : '';
+const glossClause = hasGloss
+  ? "AND gloss_zh IS NOT NULL AND gloss_zh != ''"
+  : untranslated
+    ? "AND (gloss_zh IS NULL OR gloss_zh = '')"
+    : '';
+const jlptClause = jlpt ? 'AND jlpt IS NOT NULL' : '';
+// JLPT 模式：N5→N1（jlpt DESC）＋頻率（freq_rank 小者先）；否則沿用 intro_rank。
+const orderClause = jlpt
+  ? 'ORDER BY jlpt DESC, freq_rank IS NULL, freq_rank ASC, intro_rank'
+  : 'ORDER BY intro_rank IS NULL, intro_rank';
 const rows = db
   .prepare(
     `SELECT id, expression, reading, gloss, pos FROM vocab
-     WHERE ${pendingClause} ${riskClause} ${glossClause}
-     ORDER BY intro_rank IS NULL, intro_rank LIMIT ?`,
+     WHERE ${pendingClause} ${riskClause} ${glossClause} ${jlptClause}
+     ${orderClause} LIMIT ?`,
   )
   .all(limit);
 db.close();
