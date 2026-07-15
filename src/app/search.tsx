@@ -2,10 +2,16 @@ import React, { useState, useEffect, useCallback } from "react";
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Dimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
-import { Search, X } from "lucide-react-native";
+import { Search, X, History } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Colors, Spacing, BORDER_RADIUS, Fonts } from "../constants/theme";
 import { search, VocabSearchResult, KanjiSearchResult, DeckSearchResult } from "../db/repositories/searchRepository";
+import {
+  addSearchHistory,
+  getSearchHistory,
+  removeSearchHistory,
+  clearSearchHistory,
+} from "../db/repositories/searchHistoryRepository";
 import { HighlightText } from "../components/ui/HighlightText";
 
 type SearchTab = 'all' | 'vocab' | 'kanji' | 'deck';
@@ -22,6 +28,13 @@ export default function SearchScreen() {
   const [vocabResults, setVocabResults] = useState<VocabSearchResult[]>([]);
   const [kanjiResults, setKanjiResults] = useState<KanjiSearchResult[]>([]);
   const [deckResults, setDeckResults] = useState<DeckSearchResult[]>([]);
+  const [history, setHistory] = useState<string[]>(() => getSearchHistory());
+
+  // 點結果或按鍵盤送出時記錄搜尋詞（避免記到逐字輸入的中間狀態）。
+  const recordSearch = useCallback(() => {
+    addSearchHistory(query);
+    setHistory(getSearchHistory());
+  }, [query]);
 
   useEffect(() => {
     const q = query.trim();
@@ -93,7 +106,7 @@ export default function SearchScreen() {
           <TouchableOpacity
             key={item.id}
             style={styles.card}
-            onPress={() => router.push(`/review?vocabId=${item.id}`)}
+            onPress={() => { recordSearch(); router.push(`/review?vocabId=${item.id}`); }}
           >
             <View style={styles.cardHeader}>
               <HighlightText text={item.reading} highlight={query} style={styles.rubyText} />
@@ -125,7 +138,7 @@ export default function SearchScreen() {
             <TouchableOpacity
               key={item.char}
               style={styles.kanjiCard}
-              onPress={() => router.push(`/stroke-order?kanji=${item.char}`)}
+              onPress={() => { recordSearch(); router.push(`/stroke-order?kanji=${item.char}`); }}
             >
               <HighlightText text={item.char} highlight={query} style={styles.kanjiCharText} />
               <View style={styles.kanjiDetails}>
@@ -148,7 +161,7 @@ export default function SearchScreen() {
           <TouchableOpacity
             key={item.id}
             style={styles.card}
-            onPress={() => router.push(`/deck/${item.id}`)}
+            onPress={() => { recordSearch(); router.push(`/deck/${item.id}`); }}
           >
             <View style={styles.deckCardInner}>
               <View style={[styles.deckColorBar, { backgroundColor: item.color || Colors.dark.primaryOrange }]} />
@@ -165,6 +178,37 @@ export default function SearchScreen() {
     );
   };
 
+  const renderHistory = () => {
+    if (history.length === 0) return null;
+    return (
+      <View style={styles.section}>
+        <View style={styles.historyHeader}>
+          <Text style={styles.sectionTitle}>検索履歴</Text>
+          <TouchableOpacity
+            onPress={() => { clearSearchHistory(); setHistory([]); }}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.historyClearText}>消去</Text>
+          </TouchableOpacity>
+        </View>
+        {history.map((pastQuery) => (
+          <View key={pastQuery} style={styles.historyRow}>
+            <TouchableOpacity style={styles.historyQueryArea} onPress={() => setQuery(pastQuery)}>
+              <History size={16} color={Colors.dark.textSecondary} />
+              <Text style={styles.historyQueryText} numberOfLines={1}>{pastQuery}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => { removeSearchHistory(pastQuery); setHistory(getSearchHistory()); }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <X size={16} color={Colors.dark.textSecondary} />
+            </TouchableOpacity>
+          </View>
+        ))}
+      </View>
+    );
+  };
+
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -176,6 +220,7 @@ export default function SearchScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        {query.trim() === '' && renderHistory()}
         {(activeTab === 'all' || activeTab === 'vocab') && renderVocabResults()}
         {(activeTab === 'all' || activeTab === 'kanji') && renderKanjiResults()}
         {(activeTab === 'all' || activeTab === 'deck') && renderDeckResults()}
@@ -197,6 +242,7 @@ export default function SearchScreen() {
               placeholderTextColor={Colors.dark.textSecondary}
               value={query}
               onChangeText={setQuery}
+              onSubmitEditing={recordSearch}
               autoFocus
               selectionColor={Colors.dark.primaryOrange}
             />
@@ -298,6 +344,35 @@ const styles = StyleSheet.create({
   scrollArea: {
     flex: 1,
     paddingHorizontal: Spacing.four,
+  },
+  historyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  historyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: Spacing.three,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1C1D22',
+  },
+  historyQueryArea: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    marginRight: Spacing.three,
+  },
+  historyQueryText: {
+    color: Colors.dark.text,
+    fontSize: 16,
+    fontFamily: Fonts?.lineSeedJP,
+    flex: 1,
+  },
+  historyClearText: {
+    color: Colors.dark.textSecondary,
+    fontSize: 13,
   },
   section: {
     marginBottom: Spacing.six,

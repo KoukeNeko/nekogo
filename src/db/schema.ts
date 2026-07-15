@@ -92,6 +92,14 @@ export const initDB = () => {
       );
     `);
 
+    // 搜尋紀錄：query 為主鍵、重搜同詞只更新時間戳（自然去重），保留筆數由 repository 修剪。
+    db.executeSync(`
+      CREATE TABLE IF NOT EXISTS search_history (
+        query TEXT PRIMARY KEY,
+        searched_at INTEGER NOT NULL
+      );
+    `);
+
     db.executeSync('CREATE INDEX IF NOT EXISTS idx_cards_due ON cards (due);');
     db.executeSync('CREATE INDEX IF NOT EXISTS idx_cards_deck ON cards (deck_id);');
     db.executeSync('CREATE INDEX IF NOT EXISTS idx_revlog_card ON revlog (card_id);');
