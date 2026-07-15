@@ -46,3 +46,26 @@ export const setDailyNewLimit = (limit: number): void => {
     [DAILY_NEW_LIMIT_KEY, String(limit)],
   );
 };
+
+/** FSRS 目標定着率（request_retention）。存主庫 kv；未設定時用 FSRS 慣例預設 0.9。 */
+export const TARGET_RETENTION_OPTIONS = [0.8, 0.85, 0.9, 0.95] as const;
+const TARGET_RETENTION_KEY = 'target_retention';
+const DEFAULT_TARGET_RETENTION = 0.9;
+
+export const getTargetRetention = (): number => {
+  try {
+    const row = db.executeSync('SELECT value FROM kv WHERE key = ?', [TARGET_RETENTION_KEY])
+      .rows?.[0] as { value?: string } | undefined;
+    const parsed = Number(row?.value);
+    return Number.isFinite(parsed) && parsed > 0 && parsed < 1 ? parsed : DEFAULT_TARGET_RETENTION;
+  } catch {
+    return DEFAULT_TARGET_RETENTION;
+  }
+};
+
+export const setTargetRetention = (retention: number): void => {
+  db.executeSync(
+    'INSERT INTO kv (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+    [TARGET_RETENTION_KEY, String(retention)],
+  );
+};

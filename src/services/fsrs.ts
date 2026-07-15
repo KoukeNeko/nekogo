@@ -9,6 +9,7 @@ import {
   FSRS,
 } from 'ts-fsrs';
 import { getStoredParameters } from '../db/repositories/fsrsParamsRepository';
+import { getTargetRetention } from '../db/repositories/uiSettingsRepository';
 
 // FSRS scheduler。可重建：啟動時 / 最適化後會以本機已訓練的 w 重新建立。
 // 集中於本模組存取（previewSchedule / processAnswer），確保永遠用最新參數。
@@ -31,7 +32,10 @@ export const createNewCard = (): Card => {
 export const applyStoredParameters = (): void => {
   try {
     const weights = getStoredParameters();
-    f = weights ? fsrs(generatorParameters({ w: weights })) : fsrs();
+    const requestRetention = getTargetRetention();
+    f = fsrs(generatorParameters(
+      weights ? { w: weights, request_retention: requestRetention } : { request_retention: requestRetention },
+    ));
   } catch (error) {
     console.warn('套用自訂 FSRS 參數失敗，改用預設', error);
     f = fsrs();

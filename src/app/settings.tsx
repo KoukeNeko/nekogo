@@ -14,7 +14,11 @@ import {
   DAILY_NEW_LIMIT_OPTIONS,
   getDailyNewLimit,
   setDailyNewLimit,
+  TARGET_RETENTION_OPTIONS,
+  getTargetRetention,
+  setTargetRetention,
 } from "../db/repositories/uiSettingsRepository";
+import { applyStoredParameters } from "../services/fsrs";
 
 const DummySlider = ({ width = 100, fillPercent = 80, color = Colors.dark.primaryOrange }) => {
   return (
@@ -49,6 +53,7 @@ export default function SettingsScreen() {
 
   const [cardOrder, setCardOrder] = useState<'追加順' | 'ランダム'>('追加順');
   const [dailyNewLimit, setDailyNewLimitState] = useState<number>(() => getDailyNewLimit());
+  const [targetRetention, setTargetRetentionState] = useState<number>(() => getTargetRetention());
   const [pitchAccent, setPitchAccent] = useState<'上線' | '数字'>('上線');
   const [displayFont, setDisplayFont] = useState<'明朝' | 'ゴシック'>('明朝');
   const [themeMode, setThemeMode] = useState<'システム' | 'ライト' | 'ダーク'>('ダーク');
@@ -150,8 +155,16 @@ export default function SettingsScreen() {
 
         <SettingsCard>
           <SettingsRow label="目標定着率">
-            <DummySlider width={80} fillPercent={90} />
-            <Text style={[styles.sliderValueText, { width: 40, textAlign: 'right' }]}>90%</Text>
+            {renderSegment(
+              TARGET_RETENTION_OPTIONS.map((r) => `${Math.round(r * 100)}%`),
+              `${Math.round(targetRetention * 100)}%`,
+              (val: string) => {
+                const retention = Number(val.replace('%', '')) / 100;
+                setTargetRetentionState(retention);
+                setTargetRetention(retention);
+                applyStoredParameters(); // 立即以新定着率重建排程器
+              },
+            )}
           </SettingsRow>
           <SettingsDivider />
           <SettingsRow label="1日の新規カード上限">
