@@ -35,11 +35,18 @@ export default function LicensesScreen() {
                         url="https://github.com/adobe-fonts/source-han-serif" 
                     />
                     <View style={styles.innerDivider} />
-                    <LibraryItem 
-                        name="LINE Seed TW" 
-                        license="SIL Open Font License 1.1" 
-                        description="Copyright (c) 2025, LY Corporation, with Reserved Font Name 'LINE Seed TW'." 
-                        url="https://seed.line.me/" 
+                    <LibraryItem
+                        name="LINE Seed TW"
+                        license="SIL Open Font License 1.1"
+                        description="Copyright (c) 2025, LY Corporation, with Reserved Font Name 'LINE Seed TW'."
+                        url="https://seed.line.me/"
+                    />
+                    <View style={styles.innerDivider} />
+                    <LibraryItem
+                        name="LINE Seed JP"
+                        license="SIL Open Font License 1.1"
+                        description="Copyright 2020-2022 LY Corporation, with Reserved Font Name 'LINE Seed JP'."
+                        url="https://seed.line.me/index_jp.html"
                     />
                 </View>
 

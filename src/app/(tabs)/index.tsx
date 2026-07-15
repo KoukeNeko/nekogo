@@ -69,8 +69,9 @@ export default function Home() {
   const loadMetrics = useCallback(() => {
     try {
       const data = getDailyMetrics();
+      // newCards 已由 repository 依「每日上限設定」夾住，這裡不再重複套死 20。
       setMetrics({
-        newCards: Math.min(data.newCards, 20),
+        newCards: data.newCards,
         learningCards: data.learningCards,
         reviewCards: data.reviewCards
       });
@@ -261,7 +262,7 @@ export default function Home() {
                   <Text style={styles.modeTitle}>スキミング</Text>
                   {metricsLoaded && (
                     <View style={{ backgroundColor: '#33221A', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                      <Text style={{ color: Colors.dark.primaryOrange, fontSize: 10, fontWeight: 'bold' }}>{metrics.newCards}枚</Text>
+                      <Text style={{ color: Colors.dark.primaryOrange, fontSize: 10, fontWeight: 'bold' }}>残り{metrics.newCards}枚</Text>
                     </View>
                   )}
                 </View>
@@ -283,7 +284,7 @@ export default function Home() {
                   </View>
                   {flashcardDueCount > 0 && (
                     <View style={{ backgroundColor: '#2E3135', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                      <Text style={{ color: Colors.dark.textSecondary, fontSize: 10, fontWeight: 'bold' }}>{flashcardDueCount}枚</Text>
+                      <Text style={{ color: Colors.dark.textSecondary, fontSize: 10, fontWeight: 'bold' }}>復習待ち{flashcardDueCount}枚</Text>
                     </View>
                   )}
                 </View>
@@ -300,7 +301,7 @@ export default function Home() {
                   <Text style={styles.modeTitle}>フラッシュカード</Text>
                   {metricsLoaded && (
                     <View style={{ backgroundColor: '#33221A', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                      <Text style={{ color: Colors.dark.primaryOrange, fontSize: 10, fontWeight: 'bold' }}>{flashcardDueCount}枚</Text>
+                      <Text style={{ color: Colors.dark.primaryOrange, fontSize: 10, fontWeight: 'bold' }}>復習待ち{flashcardDueCount}枚</Text>
                     </View>
                   )}
                 </View>
