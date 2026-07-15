@@ -12,7 +12,7 @@
 - **FSRS-6 排程＋裝置端個人化**——排程由 [ts-fsrs](https://github.com/open-spaced-repetition/ts-fsrs) 計算；累積足夠複習紀錄後，可用內建的原生優化器（Rust [fsrs-rs](https://github.com/open-spaced-repetition/fsrs-rs)，經 Expo Module 橋接）在本機重新擬合個人參數。詳見 [docs/FSRS_NATIVE_OPTIMIZER.md](docs/FSRS_NATIVE_OPTIMIZER.md)。
 - **全離線內容庫**——單字（JMdict）、逐字 furigana 對位（JmdictFurigana）、例句（Tanaka Corpus / Tatoeba）、漢字與筆順（KANJIDIC2 / KanjiVG）、JLPT 分級、詞頻與音調，於 build 階段由 ETL 組成唯讀 SQLite 隨 App 打包。
 - **繁體中文釋義**——`gloss_zh` 以台灣用語重譯（非簡繁轉換），缺譯自動退回英文；語言可於設定切換。
-- **詞源（語源）演化圖**——像 Google 字典的「Word origin」：以演化鏈呈現詞形變遷（如 文手（ふみて）→ ふんで → ふで（筆）），標注信度（定說／有力學說／一說／俗說）與可點開的出典連結。目前為試批階段，僅覆蓋部分 N5 高頻詞。
+- **詞源（語源）演化圖**——像 Google 字典的「Word origin」：以演化鏈呈現詞形變遷（如 文手（ふみて）→ ふむで → ふで（筆）），標注信度（定説／有力説／一説／俗説）與可點開的出典連結；說明文字支援繁中／英文切換。目前為試批階段，僅覆蓋少量高頻詞。
 - **單字詳情**——pitch accent 圖、例句 TTS 朗讀、構成漢字筆順動畫（可點入逐筆播放）。
 
 ## 技術堆疊
@@ -93,7 +93,10 @@ npx tsc --noEmit       # 型別檢查
 
 ## 資料來源與授權
 
-內容資料建立在開放授權資源之上：JMdict／KANJIDIC2（EDRDG，CC BY-SA 4.0）、
-JmdictFurigana（CC BY-SA 4.0）、KanjiVG（CC BY-SA 3.0）、Tanaka Corpus／Tatoeba（CC BY）、
-tanos.co.uk JLPT 字表等。完整清單與各來源的授權標注見 [RESOURCES.md](RESOURCES.md)，
-App 內「關於」頁列有 attribution。
+- **程式碼**：MIT License（見 [LICENSE](LICENSE)）。
+- **打包內容庫（kioku-content.db）**：為下列開放資料的衍生資料庫，依 ShareAlike 條款以
+  **CC BY-SA 4.0** 提供——JMdict／KANJIDIC2（EDRDG，CC BY-SA 4.0）、JmdictFurigana（CC BY-SA 4.0）、
+  KanjiVG（CC BY-SA 3.0）、Tanaka Corpus／Tatoeba（CC BY）、tanos.co.uk JLPT 字表等；
+  本專案自產的繁中釋義與詞源內容亦併入同一授權。DB 不入版控，但可由公開的
+  `scripts/etl/` 管線自各上游來源完整重建。
+- 完整來源清單與各項授權風險標注見 [RESOURCES.md](RESOURCES.md)，App 內「關於」頁列有 attribution。
