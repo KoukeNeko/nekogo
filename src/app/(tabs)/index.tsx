@@ -139,6 +139,9 @@ export default function Home() {
   const totalDue = metrics.newCards + metrics.learningCards + metrics.reviewCards;
   // 今日可引入的新卡歸零（達每日上限或已無新卡）→ 速讀今日完了，首頁停用該入口。
   const skimDone = metricsLoaded && metrics.newCards === 0;
+  // 速讀優先：當天仍有新卡未分完 → 鎖住閃卡，強制先完成速讀再複習。
+  // 需 metricsLoaded 才判定，避免載入瞬間先鎖再解的閃爍。
+  const skimPending = metricsLoaded && metrics.newCards > 0;
   // 進度環 = 今天已複習 / (已複習 + 尚待複習)。全部完成時為滿。
   const plannedToday = reviewedToday + totalDue;
   const progress = plannedToday === 0 ? 1 : reviewedToday / plannedToday;
@@ -258,15 +261,32 @@ export default function Home() {
             </TouchableOpacity>
           )}
 
-          <TouchableOpacity style={styles.modeCard} onPress={() => router.push('/review')}>
-            <View style={styles.modeIcon}>
-              <Layers size={28} color={Colors.dark.primaryOrange} />
+          {skimPending ? (
+            <View style={[styles.modeCard, { opacity: 0.6 }]}>
+              <View style={styles.modeIcon}>
+                <Layers size={28} color={Colors.dark.textSecondary} />
+              </View>
+              <View style={styles.modeInfo}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <Text style={styles.modeTitle}>フラッシュカード</Text>
+                  <View style={{ backgroundColor: '#2E3135', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                    <Text style={{ color: Colors.dark.textSecondary, fontSize: 10, fontWeight: 'bold' }}>ロック中</Text>
+                  </View>
+                </View>
+                <Text style={styles.modeSubtitle}>先にスキミングを完了してください</Text>
+              </View>
             </View>
-            <View style={styles.modeInfo}>
-              <Text style={styles.modeTitle}>フラッシュカード</Text>
-              <Text style={styles.modeSubtitle}>通常の記憶トレーニング</Text>
-            </View>
-          </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={styles.modeCard} onPress={() => router.push('/review')}>
+              <View style={styles.modeIcon}>
+                <Layers size={28} color={Colors.dark.primaryOrange} />
+              </View>
+              <View style={styles.modeInfo}>
+                <Text style={styles.modeTitle}>フラッシュカード</Text>
+                <Text style={styles.modeSubtitle}>通常の記憶トレーニング</Text>
+              </View>
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             style={[styles.modeCard, { opacity: 0.6 }]}
