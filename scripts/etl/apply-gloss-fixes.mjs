@@ -32,6 +32,21 @@ const GLOSS_FIXES = [
     reading: 'すべる',
     gloss_zh: '滑；滑動；滑行（滑雪、溜冰）；（口）落榜；（笑話）冷場',
   },
+  {
+    expression: '燥ぐ',
+    reading: 'はしゃぐ',
+    gloss_zh: '歡鬧、玩瘋；興高采烈；得意忘形地喧鬧',
+  },
+  {
+    expression: '参る',
+    reading: 'まいる',
+    gloss_zh: '去；來（「行く・来る」的謙讓語）；參拜；（参った）招架不住、認輸',
+  },
+  {
+    expression: 'お参り',
+    reading: 'おまいり',
+    gloss_zh: '參拜（神社、寺廟、墓地）',
+  },
 ];
 
 const db = new DatabaseSync(CONTENT_DB_PATH);
