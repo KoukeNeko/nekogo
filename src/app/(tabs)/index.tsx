@@ -257,7 +257,14 @@ export default function Home() {
                 <BookOpen size={28} color={Colors.dark.primaryOrange} />
               </View>
               <View style={styles.modeInfo}>
-                <Text style={styles.modeTitle}>スキミング</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <Text style={styles.modeTitle}>スキミング</Text>
+                  {metricsLoaded && (
+                    <View style={{ backgroundColor: '#33221A', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                      <Text style={{ color: Colors.dark.primaryOrange, fontSize: 10, fontWeight: 'bold' }}>{metrics.newCards}枚</Text>
+                    </View>
+                  )}
+                </View>
                 <Text style={styles.modeSubtitle}>単語をすばやく閲覧</Text>
               </View>
             </TouchableOpacity>
