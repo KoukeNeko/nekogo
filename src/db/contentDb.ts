@@ -35,7 +35,8 @@ export const CONTENT_ALIAS = 'content';
 // v26：詞源欄位日文化——origin_type/confidence 枚舉與 stage period 改日文（音変化/漢語/複合語/意味変化；定説/有力説），移除 period_en；僅 note/explanation 維持繁中＋英文雙語。
 // v27：補「結ぶ（むすぶ）」詞源（語根むす（産す）＋動詞化；産霊むすひ同根說），新增「派生語」類型，vocab_etymology 共 18 筆。
 // v28：補「滑る（すべる）」詞源（語根すべ＋動詞化；一説）與繁中釋義（原缺譯），vocab_etymology 共 19 筆。
-const CONTENT_DB_FILE = 'kioku-content-v28.db';
+// v29：補「燥ぐ（はしゃぐ）」詞源（はしやぐ乾燥義→江戸轉義喧鬧；語源由来辞典）與繁中釋義（原缺譯），vocab_etymology 共 20 筆。
+const CONTENT_DB_FILE = 'kioku-content-v29.db';
 // 舊版副本檔名：複製新版時順手清掉，避免 134MB 級的孤兒檔佔用空間。
 const STALE_CONTENT_DB_FILES = [
   'kioku-content-v4.db',
@@ -62,6 +63,7 @@ const STALE_CONTENT_DB_FILES = [
   'kioku-content-v25.db',
   'kioku-content-v26.db',
   'kioku-content-v27.db',
+  'kioku-content-v28.db',
 ];
 const DEST_URI = `${FileSystem.documentDirectory}${CONTENT_DB_FILE}`;
 const DEST_PATH = DEST_URI.replace('file://', '');
@@ -85,6 +87,31 @@ const ensureContentDbCopied = async (): Promise<void> => {
   console.log('✅ 內容庫已複製至 documentDirectory');
 };
 
+/**
+ * 清掉 expo-asset 下載內容庫時留在 Caches 的 ExponentAsset-*.db（每版 134MB 級，
+ * 版本 bump 會累積成 GB 級孤兒檔）。副本已在 documentDirectory，快取一律可刪；
+ * 極端情況（同版重灌）expo-asset 會自動重新下載，故連當前版的快取也可安全清除。
+ */
+const cleanupContentAssetCaches = async (): Promise<void> => {
+  const cacheDirectory = FileSystem.cacheDirectory;
+  if (!cacheDirectory) return;
+  try {
+    const cacheFiles = await FileSystem.readDirectoryAsync(cacheDirectory);
+    const staleAssetDbs = cacheFiles.filter(
+      (name) => name.startsWith('ExponentAsset-') && name.endsWith('.db'),
+    );
+    for (const staleAssetDb of staleAssetDbs) {
+      await FileSystem.deleteAsync(`${cacheDirectory}${staleAssetDb}`, { idempotent: true });
+    }
+    if (staleAssetDbs.length > 0) {
+      console.log(`🧹 已清除 ${staleAssetDbs.length} 份內容庫資產快取`);
+    }
+  } catch (error) {
+    // 清快取失敗不影響功能，僅記錄。
+    console.warn('清除內容庫資產快取失敗', error);
+  }
+};
+
 /** 複製（首次）並把內容庫 ATTACH 到主連線。冪等；需在任何 content.* 查詢前 await。 */
 export const attachContentDb = async (): Promise<void> => {
   if (attached) {
@@ -105,4 +132,7 @@ export const attachContentDb = async (): Promise<void> => {
   const result = db.executeSync(`SELECT COUNT(*) AS count FROM ${CONTENT_ALIAS}.vocab`);
   const count = (result.rows?.[0] as { count?: number } | undefined)?.count ?? 0;
   console.log(`✅ 內容庫已掛載 — content.vocab 共 ${count} 筆`);
+
+  // 掛載成功後在背景清資產快取（不阻塞啟動）。
+  void cleanupContentAssetCaches();
 };
