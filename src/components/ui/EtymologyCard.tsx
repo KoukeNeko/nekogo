@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Linking } from 'react-native';
-import { ArrowRight, ExternalLink } from 'lucide-react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
+import { ArrowDown, ExternalLink } from 'lucide-react-native';
 import { Colors, Spacing, BORDER_RADIUS, Fonts } from '../../constants/theme';
 import type { Etymology } from '../../db/repositories/etymologyRepository';
 
@@ -30,25 +30,27 @@ export const EtymologyCard: React.FC<EtymologyCardProps> = ({ etymology }) => {
                 </View>
             </View>
 
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chainRow}>
+            <View>
                 {etymology.stages.map((stage, index) => (
                     <React.Fragment key={`${stage.form}-${index}`}>
                         {index > 0 && (
                             <View style={styles.arrowWrap}>
-                                <ArrowRight size={16} color={Colors.dark.textSecondary} />
+                                <ArrowDown size={16} color={Colors.dark.textSecondary} />
                             </View>
                         )}
                         <View style={styles.stageNode}>
-                            <Text style={styles.stageForm}>{stage.form}</Text>
-                            {stage.reading != null && stage.reading !== stage.form && (
-                                <Text style={styles.stageReading}>{stage.reading}</Text>
-                            )}
-                            <Text style={styles.stagePeriod}>{stage.period}</Text>
+                            <View style={styles.stageTopRow}>
+                                <Text style={styles.stageForm}>{stage.form}</Text>
+                                {stage.reading != null && stage.reading !== stage.form && (
+                                    <Text style={styles.stageReading}>{stage.reading}</Text>
+                                )}
+                                <Text style={styles.stagePeriod}>{stage.period}</Text>
+                            </View>
                             {stage.note != null && <Text style={styles.stageNote}>{stage.note}</Text>}
                         </View>
                     </React.Fragment>
                 ))}
-            </ScrollView>
+            </View>
 
             <Text style={styles.explanation}>{etymology.explanationZh}</Text>
 
@@ -114,20 +116,20 @@ const styles = StyleSheet.create({
     confidenceBadgeTextTentative: {
         color: '#E0A458',
     },
-    chainRow: {
-        alignItems: 'center',
-        paddingVertical: Spacing.one,
-    },
     arrowWrap: {
-        paddingHorizontal: Spacing.two,
+        alignItems: 'center',
+        paddingVertical: 2,
     },
     stageNode: {
         backgroundColor: '#1C1D22',
         borderRadius: BORDER_RADIUS.md,
         paddingHorizontal: Spacing.three,
         paddingVertical: Spacing.two,
-        alignItems: 'center',
-        minWidth: 76,
+    },
+    stageTopRow: {
+        flexDirection: 'row',
+        alignItems: 'baseline',
+        gap: Spacing.two,
     },
     stageForm: {
         color: Colors.dark.text,
@@ -138,19 +140,16 @@ const styles = StyleSheet.create({
     stageReading: {
         color: Colors.dark.textSecondary,
         fontSize: 12,
-        marginTop: 2,
     },
     stagePeriod: {
         color: '#4F525A',
         fontSize: 10,
-        marginTop: 4,
+        marginLeft: 'auto',
     },
     stageNote: {
         color: Colors.dark.textSecondary,
-        fontSize: 10,
-        marginTop: 2,
-        maxWidth: 132,
-        textAlign: 'center',
+        fontSize: 11,
+        marginTop: 4,
     },
     explanation: {
         color: Colors.dark.text,
