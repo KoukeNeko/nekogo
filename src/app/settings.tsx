@@ -49,7 +49,6 @@ export default function SettingsScreen() {
   const [autoPlayEnabled, setAutoPlayEnabled] = useState(true);
   const [soundEffectEnabled, setSoundEffectEnabled] = useState(false);
   const [reminderEnabled, setReminderEnabled] = useState(true);
-  const [autoSyncEnabled, setAutoSyncEnabled] = useState(true);
 
   const [cardOrder, setCardOrder] = useState<'追加順' | 'ランダム'>('追加順');
   const [dailyNewLimit, setDailyNewLimitState] = useState<number>(() => getDailyNewLimit());
@@ -269,15 +268,11 @@ export default function SettingsScreen() {
         {/* Section 5: Data & Sync */}
         <Text style={styles.sectionHeaderLabel}>データと同期</Text>
         <SettingsCard>
-          <SettingsRow label="同期" valueText="2分前" valueColor="#66D283">
-            <View style={styles.greenDot} />
-          </SettingsRow>
+          <SettingsRow label="同期" valueText="近日公開" />
           <SettingsDivider />
-          <SettingsSwitchRow label="自動同期" value={autoSyncEnabled} onValueChange={setAutoSyncEnabled} />
+          <SettingsRow label="Anki .apkg を取り込む" valueText="近日公開" />
           <SettingsDivider />
-          <SettingsRow label="Anki .apkg を取り込む" showChevron onPress={() => { }} />
-          <SettingsDivider />
-          <SettingsRow label="エクスポート" showChevron onPress={() => { }} />
+          <SettingsRow label="エクスポート" valueText="近日公開" />
           <SettingsDivider />
           <SettingsRow label="キャッシュを削除" valueText="124 MB" onPress={() => { }} />
         </SettingsCard>
