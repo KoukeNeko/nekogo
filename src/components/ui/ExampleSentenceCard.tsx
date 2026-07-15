@@ -25,7 +25,7 @@ export const ExampleSentenceCard: React.FC<ExampleSentenceCardProps> = ({ exampl
         >
             <View style={styles.sentenceTopRow}>
                 <View style={styles.sentenceTextWrap}>
-                    <FuriganaText chunks={example.furigana} fontSize={20} align="flex-start" />
+                    <FuriganaText chunks={example.furigana} fontSize={20} align="flex-start" kanaColor="#5AC8FA" />
                 </View>
                 <TouchableOpacity style={styles.speakerButton} onPress={() => speakJapanese(example.jp)}>
                     <Volume2 size={20} color={Colors.dark.primaryOrange} />

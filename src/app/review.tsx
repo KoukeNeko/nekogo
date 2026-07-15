@@ -20,6 +20,7 @@ import { getVocabById } from "../db/repositories/cardRepository";
 import { getCardFlags, setBookmarked, setSuspended } from "../db/repositories/collectionsRepository";
 import { getEtymology, Etymology } from "../db/repositories/etymologyRepository";
 import { EtymologyCard } from "../components/ui/EtymologyCard";
+import { parsePosLabels, buildConjugations } from "../services/grammar";
 import { ActivityIndicator } from "react-native";
 import { PitchAccent } from "../components/ui/PitchAccent";
 import { speakJapanese } from "../utils/speech";
@@ -209,6 +210,9 @@ export default function Review() {
 
   // 讀音 / 例句 / 音高 / 構成漢字 皆由 content 庫充實後帶在 currentItem 上。
   const reading = readingOf(displayChunks);
+  const expression = displayChunks.map((chunk) => chunk.ruby).join('');
+  const posLabels = parsePosLabels(currentItem.pos);
+  const conjugations = buildConjugations(expression, currentItem.pos);
   const example = currentItem.example;
   const pitch = currentItem.pitch;
   const kanjiList = currentItem.kanjiList;
@@ -283,10 +287,37 @@ export default function Review() {
         </View>
       </View>
 
-      {/* Meaning */}
+      {/* Meaning + 基本資訊（詞性） */}
       <View style={styles.meaningArea}>
         <Text style={styles.meaningText}>{currentItem.english}</Text>
+        {posLabels.length > 0 && (
+          <View style={styles.posChipRow}>
+            {posLabels.map((label) => (
+              <View key={label} style={styles.posChip}>
+                <Text style={styles.posChipText}>{label}</Text>
+              </View>
+            ))}
+          </View>
+        )}
       </View>
+
+      {/* 活用（動詞・い形容詞のみ） */}
+      {conjugations && (
+        <View style={styles.sectionArea}>
+          <Text style={styles.sectionTitle}>活用</Text>
+          <View style={styles.conjugationCard}>
+            {conjugations.map((item) => (
+              <View key={item.label} style={styles.conjugationItem}>
+                <Text style={styles.conjugationLabel}>{item.label}</Text>
+                <Text style={styles.conjugationForm}>
+                  {item.stem}
+                  <Text style={styles.conjugationEnding}>{item.ending}</Text>
+                </Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
 
       {/* Example Sentence Box (per-card, from Tanaka Corpus) */}
       {example && (
@@ -608,6 +639,53 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontFamily: Fonts?.lineSeed,
     marginBottom: Spacing.two,
+  },
+  posChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  posChip: {
+    backgroundColor: '#1C1D22',
+    borderWidth: 1,
+    borderColor: '#2E3135',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  posChipText: {
+    color: Colors.dark.textSecondary,
+    fontSize: 11,
+    fontFamily: Fonts?.lineSeedJP,
+  },
+  conjugationCard: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    backgroundColor: '#16171B',
+    borderRadius: BORDER_RADIUS.lg,
+    borderWidth: 1,
+    borderColor: '#2E3135',
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+  },
+  conjugationItem: {
+    width: '50%',
+    paddingVertical: Spacing.two,
+  },
+  conjugationLabel: {
+    color: '#4F525A',
+    fontSize: 10,
+    marginBottom: 2,
+    fontFamily: Fonts?.lineSeedJP,
+  },
+  conjugationForm: {
+    color: Colors.dark.text,
+    fontSize: 16,
+    fontFamily: Fonts?.lineSeedJP,
+  },
+  // 變化的語尾假名以豔青色標示（呼應手寫筆記的假名標色習慣）。
+  conjugationEnding: {
+    color: '#5AC8FA',
   },
   posText: {
     color: Colors.dark.textSecondary,
