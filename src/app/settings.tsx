@@ -10,6 +10,11 @@ import { SettingsCard, SettingsRow, SettingsDivider, SettingsSwitchRow } from ".
 import { useSettings, StrokeSpeed } from "../context/SettingsContext";
 import { getReviewLogCount, optimizeParameters } from "../services/fsrsOptimizer";
 import { MIN_REVIEWS_TO_OPTIMIZE } from "../services/fsrsTraining";
+import {
+  DAILY_NEW_LIMIT_OPTIONS,
+  getDailyNewLimit,
+  setDailyNewLimit,
+} from "../db/repositories/uiSettingsRepository";
 
 const DummySlider = ({ width = 100, fillPercent = 80, color = Colors.dark.primaryOrange }) => {
   return (
@@ -43,6 +48,7 @@ export default function SettingsScreen() {
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(true);
 
   const [cardOrder, setCardOrder] = useState<'追加順' | 'ランダム'>('追加順');
+  const [dailyNewLimit, setDailyNewLimitState] = useState<number>(() => getDailyNewLimit());
   const [pitchAccent, setPitchAccent] = useState<'上線' | '数字'>('上線');
   const [displayFont, setDisplayFont] = useState<'明朝' | 'ゴシック'>('明朝');
   const [themeMode, setThemeMode] = useState<'システム' | 'ライト' | 'ダーク'>('ダーク');
@@ -148,7 +154,17 @@ export default function SettingsScreen() {
             <Text style={[styles.sliderValueText, { width: 40, textAlign: 'right' }]}>90%</Text>
           </SettingsRow>
           <SettingsDivider />
-          <SettingsRow label="1日の新規カード上限" valueText="24" showChevron onPress={() => { }} />
+          <SettingsRow label="1日の新規カード上限">
+            {renderSegment(
+              DAILY_NEW_LIMIT_OPTIONS.map(String),
+              String(dailyNewLimit),
+              (val: string) => {
+                const limit = Number(val);
+                setDailyNewLimitState(limit);
+                setDailyNewLimit(limit);
+              },
+            )}
+          </SettingsRow>
           <SettingsDivider />
           <SettingsRow label="1日の復習上限" valueText="無制限" showChevron onPress={() => { }} />
           <SettingsDivider />

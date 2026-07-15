@@ -2,6 +2,7 @@ import { db } from '../schema';
 import { Card, createNewCard, processAnswer, Rating } from '../../services/fsrs';
 import { VocabItem } from '../../hooks/useReviewSession';
 import { fetchVocabByIds, fetchVocabDetail, ApiVocab } from '../../api/contentApi';
+import { getDailyNewLimit } from './uiSettingsRepository';
 import { getSelectedDecks } from './selectedDecksRepository';
 
 // 範圍解析：明確單一 deckId → 只那包；否則用使用者選的範圍（可多選；空 = 全部）。
@@ -46,7 +47,7 @@ const toVocabItemFromApi = (vocab: ApiVocab, fsrsCard: Card): VocabItem => ({
 });
 
 /** 每日新卡上限：當天引入滿這麼多張後，不再給新卡（避免無限批次、進度才會「停得住」）。 */
-export const DAILY_NEW_LIMIT = 20;
+// 每日新卡上限改由使用者設定（uiSettingsRepository），此處不再保留常數。
 
 // 今天「真正開始學」的新卡數：以每張卡「最早一筆複習」為準，落在今天、
 // 且首評不是 Easy(=4) 才算（按「簡単/我已經會」只是分流掉，不佔當日新卡額度）。
@@ -79,7 +80,7 @@ export const getDailyMetrics = (deckId?: string) => {
   const availableNew =
     (db.executeSync(`SELECT COUNT(*) AS c FROM cards WHERE state = 0 AND suspended = 0 ${deckClause}`, deckParams).rows[0] as any)?.c || 0;
   // 新規 = 今日尚可引入的新卡（每日上限 − 今日已引入），且不超過實際可用數。
-  const newCards = Math.min(availableNew, Math.max(0, DAILY_NEW_LIMIT - countNewIntroducedToday(deckId)));
+  const newCards = Math.min(availableNew, Math.max(0, getDailyNewLimit() - countNewIntroducedToday(deckId)));
   const learningCards =
     (db.executeSync(`SELECT COUNT(*) AS c FROM cards WHERE (state = 1 OR state = 3) AND suspended = 0 AND due <= ? ${deckClause}`, [now, ...deckParams]).rows[0] as any)?.c || 0;
   const reviewCards =
@@ -94,7 +95,7 @@ export const getDailyMetrics = (deckId?: string) => {
  */
 export const getDailyNewProgress = (deckId?: string): { learned: number; limit: number } => ({
   learned: countNewIntroducedToday(deckId),
-  limit: DAILY_NEW_LIMIT,
+  limit: getDailyNewLimit(),
 });
 
 // 字典模式：向雲端取單字 + 例句 + 構成漢字。FSRS 用空卡（字典查詢不影響排程）。

@@ -21,7 +21,7 @@ export default function SkimScreen() {
     useCallback(() => {
       let cancelled = false;
       setLoading(true);
-      getSkimQueue(20).then(items => {
+      getSkimQueue(getDailyNewProgress().limit).then(items => {
         if (!cancelled) {
           setQueue(items);
           setProgress(getDailyNewProgress());
@@ -49,7 +49,7 @@ export default function SkimScreen() {
 
     if (currentIndex + 1 >= queue.length) {
       setLoading(true);
-      getSkimQueue(20).then(items => {
+      getSkimQueue(getDailyNewProgress().limit).then(items => {
         setQueue(items);
         setCurrentIndex(0);
         setLoading(false);
