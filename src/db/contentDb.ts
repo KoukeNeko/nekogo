@@ -37,7 +37,9 @@ export const CONTENT_ALIAS = 'content';
 // v28：補「滑る（すべる）」詞源（語根すべ＋動詞化；一説）與繁中釋義（原缺譯），vocab_etymology 共 19 筆。
 // v29：補「燥ぐ（はしゃぐ）」詞源（はしやぐ乾燥義→江戸轉義喧鬧；語源由来辞典）與繁中釋義（原缺譯），vocab_etymology 共 20 筆。
 // v30：補「参る（まいる）」（まゐ＋入る；謙譲語原理）與「お参り」（お＋参り派生）詞源＋兩者繁中釋義（原缺譯），vocab_etymology 共 22 筆。
-const CONTENT_DB_FILE = 'kioku-content-v30.db';
+// v31：新增 meta 表（content_version 蓋章）；掛載時核對版本，抓「檔名新、內容舊」的走樣副本（Metro 資產快取曾造成 v30 副本缺 参る/お参り）。
+// ※ bump 版本後記得執行 node scripts/etl/sync-content-version.mjs 重新蓋章。
+const CONTENT_DB_FILE = 'kioku-content-v31.db';
 // 舊版副本檔名：複製新版時順手清掉，避免 134MB 級的孤兒檔佔用空間。
 const STALE_CONTENT_DB_FILES = [
   'kioku-content-v4.db',
@@ -66,6 +68,7 @@ const STALE_CONTENT_DB_FILES = [
   'kioku-content-v27.db',
   'kioku-content-v28.db',
   'kioku-content-v29.db',
+  'kioku-content-v30.db',
 ];
 const DEST_URI = `${FileSystem.documentDirectory}${CONTENT_DB_FILE}`;
 const DEST_PATH = DEST_URI.replace('file://', '');
@@ -132,13 +135,23 @@ export const cleanupContentAssetCaches = async (): Promise<void> => {
   }
 };
 
-/** 複製（首次）並把內容庫 ATTACH 到主連線。冪等；需在任何 content.* 查詢前 await。 */
-export const attachContentDb = async (): Promise<void> => {
-  if (attached) {
-    return;
+// 檔名內的預期版本號（v31…）；副本 meta 表的蓋章須與之一致。
+const EXPECTED_CONTENT_VERSION = CONTENT_DB_FILE.match(/-(v\d+)\.db$/)?.[1] ?? null;
+
+// 讀副本 meta 表的版本蓋章；舊版副本（無 meta 表）回傳 null。
+const readCopiedContentVersion = (): string | null => {
+  try {
+    const row = db.executeSync(
+      `SELECT value FROM ${CONTENT_ALIAS}.meta WHERE key = 'content_version'`,
+    ).rows?.[0] as { value?: string } | undefined;
+    return row?.value ?? null;
+  } catch {
+    return null;
   }
-  await ensureContentDbCopied();
-  // dev reload 後原生連線可能還留著上一輪的 ATTACH；若指向舊版檔案則先卸掉再重掛。
+};
+
+// dev reload 後原生連線可能還留著上一輪的 ATTACH；若指向舊版檔案則先卸掉再重掛。
+const attachCopiedContentDb = (): void => {
   const attachedDbs = (db.executeSync('PRAGMA database_list').rows ?? []) as { name?: string; file?: string }[];
   const existing = attachedDbs.find((row) => row.name === CONTENT_ALIAS);
   if (existing && existing.file !== DEST_PATH) {
@@ -146,6 +159,36 @@ export const attachContentDb = async (): Promise<void> => {
   }
   if (!existing || existing.file !== DEST_PATH) {
     db.executeSync(`ATTACH DATABASE '${DEST_PATH}' AS ${CONTENT_ALIAS}`);
+  }
+};
+
+/** 複製（首次）並把內容庫 ATTACH 到主連線。冪等；需在任何 content.* 查詢前 await。 */
+export const attachContentDb = async (): Promise<void> => {
+  if (attached) {
+    return;
+  }
+  await ensureContentDbCopied();
+  attachCopiedContentDb();
+
+  // 版本核對：抓「檔名是新版、內容是舊位元組」的走樣副本（如 Metro 資產快取供舊檔）。
+  // 不符→刪副本重複製一次；仍不符→大聲警告但照常服務（內容仍可用，只是可能缺最新批次）。
+  if (EXPECTED_CONTENT_VERSION) {
+    let copiedVersion = readCopiedContentVersion();
+    if (copiedVersion !== EXPECTED_CONTENT_VERSION) {
+      console.warn(
+        `⚠️ 內容庫副本版本不符（${copiedVersion ?? '無蓋章'} ≠ 預期 ${EXPECTED_CONTENT_VERSION}），刪除副本重新複製`,
+      );
+      db.executeSync(`DETACH DATABASE ${CONTENT_ALIAS}`);
+      await FileSystem.deleteAsync(DEST_URI, { idempotent: true });
+      await ensureContentDbCopied();
+      attachCopiedContentDb();
+      copiedVersion = readCopiedContentVersion();
+      if (copiedVersion !== EXPECTED_CONTENT_VERSION) {
+        console.warn(
+          `❌ 重新複製後版本仍不符（${copiedVersion ?? '無蓋章'}）——dev 環境請重啟 Metro 後重載，或確認已執行 sync-content-version.mjs`,
+        );
+      }
+    }
   }
   attached = true;
 
