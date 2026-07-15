@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, InteractionManager } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Colors, Spacing, BORDER_RADIUS, Fonts } from "../../constants/theme";
-import { Search, MoreHorizontal, Plus, LayoutGrid, List, Library, Check } from "lucide-react-native";
+import { Search, MoreHorizontal, Plus, LayoutGrid, List } from "lucide-react-native";
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useFocusEffect } from "expo-router";
 import { getAllDecksWithMetrics, Deck } from "../../db/repositories/deckRepository";
@@ -10,7 +10,7 @@ import { AppBar } from "../../components/ui/AppBar";
 import { useCallback } from "react";
 
 export default function Decks() {
-  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'bookshelf'>('bookshelf');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [decks, setDecks] = useState<Deck[]>([]);
   const router = useRouter();
 
@@ -26,42 +26,6 @@ export default function Decks() {
       return () => { cancelled = true; task.cancel(); };
     }, [])
   );
-
-  const renderVerticalText = (text: string) => {
-    // split by newline first (e.g. "N3\n語彙")
-    const parts = text.split('\n');
-    return parts.map((part, index) => {
-      // if part is english alphanumeric (like N3), keep it horizontal
-      if (/^[a-zA-Z0-9]+$/.test(part)) {
-        return <Text key={index} style={styles.verticalCharText}>{part}</Text>;
-      }
-      // otherwise, split into characters and stack
-      return part.split('').map((char, charIdx) => {
-        // Handle vertical chōonpu
-        const displayChar = char === 'ー' ? '丨' : char;
-        return <Text key={`${index}-${charIdx}`} style={styles.verticalCharText}>{displayChar}</Text>;
-      });
-    });
-  };
-
-  const formatTitleForSpine = (name: string) => {
-    // JLPT N5 -> N5\n語彙 or similar. If it has a space, replace the first space with newline.
-    // e.g. "JLPT N5" -> "N5\n語彙"
-    let t = name.replace('JLPT ', '');
-    // If it's just "N5", make it "N5\n語彙"
-    if (t.match(/^N[1-5]$/)) {
-      t = t + '\n語彙';
-    } else if (t.includes(' ')) {
-      t = t.replace(' ', '\n');
-    }
-    return t;
-  };
-
-  const allItems = [...decks, { id: 'new', isNew: true } as any];
-  const chunkedDecks = [];
-  for (let i = 0; i < allItems.length; i += 4) {
-    chunkedDecks.push(allItems.slice(i, i + 4));
-  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -85,83 +49,13 @@ export default function Decks() {
               >
                 <LayoutGrid size={16} color={viewMode === 'grid' ? Colors.dark.text : Colors.dark.textSecondary} />
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.toggleBtn, viewMode === 'bookshelf' && styles.toggleBtnActive]}
-                onPress={() => setViewMode('bookshelf')}
-              >
-                <Library size={16} color={viewMode === 'bookshelf' ? Colors.dark.text : Colors.dark.textSecondary} />
-              </TouchableOpacity>
             </View>
           </View>
         }
       />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {viewMode === 'bookshelf' ? (
-          <View style={styles.bookshelfContainer}>
-            {chunkedDecks.map((shelf, shelfIdx) => (
-              <View key={`shelf-${shelfIdx}`} style={styles.shelfRowWrapper}>
-                <View style={styles.shelfRow}>
-                  {shelf.map((deck: any, index) => {
-                    if (deck.isNew) {
-                      return (
-                        <TouchableOpacity key="new" style={styles.newSpine}>
-                          <Plus size={24} color={Colors.dark.textSecondary} />
-                        </TouchableOpacity>
-                      );
-                    }
-
-                    // Calculate a slight height variation based on id string length or char codes
-                    const heightOffset = (deck.id.length % 3) * 10;
-                    
-                    const pending = Math.min(deck.metrics.newCards, 20) + deck.metrics.learningCards + deck.metrics.reviewCards;
-                    
-                    return (
-                      <TouchableOpacity 
-                        key={deck.id} 
-                        style={[styles.spineWrapper, { marginTop: heightOffset }]}
-                        onPress={() => router.push(`/deck/${deck.id}`)}
-                      >
-                        <LinearGradient
-                          colors={[`${deck.color || '#66D283'}15`, '#16171B']}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 0 }}
-                          style={styles.spineCard}
-                        >
-                          {/* Top Pill */}
-                          <View style={styles.spineTop}>
-                            <View style={[styles.spinePill, { backgroundColor: pending === 0 ? '#66D283' : (deck.color || '#66D283') }]}>
-                              {pending === 0 ? (
-                                <Check size={14} color="#000" strokeWidth={3} />
-                              ) : (
-                                <Text style={styles.spinePillText}>{pending}</Text>
-                              )}
-                            </View>
-                          </View>
-
-                          {/* Vertical Text */}
-                          <View style={styles.verticalTextContainer}>
-                            {renderVerticalText(formatTitleForSpine(deck.name))}
-                          </View>
-
-                          {/* Bottom Label */}
-                          <View style={[styles.spineBottom, { backgroundColor: deck.color || '#66D283' }]}>
-                            <Text style={styles.spineBottomText}>{pending === 0 ? '完了' : deck.metrics.totalCards}</Text>
-                          </View>
-                        </LinearGradient>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-                {/* The visual shelf board */}
-                <LinearGradient
-                  colors={['#2E3135', '#0B0C10']}
-                  style={styles.shelfBoard}
-                />
-              </View>
-            ))}
-          </View>
-        ) : viewMode === 'list' ? (
+        {viewMode === 'list' ? (
           <View style={styles.listContainer}>
             {decks.map((deck) => {
               const pending = Math.min(deck.metrics.newCards, 20) + deck.metrics.learningCards + deck.metrics.reviewCards;
@@ -364,10 +258,6 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 6,
   },
-  tagText: {
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
   titleContainer: {
     marginTop: Spacing.four,
   },
@@ -430,91 +320,6 @@ const styles = StyleSheet.create({
   newDeckText: {
     color: Colors.dark.textSecondary,
     fontSize: 13,
-  },
-  // Bookshelf Styles
-  bookshelfContainer: {
-    paddingHorizontal: 8,
-    gap: 40,
-  },
-  shelfRowWrapper: {
-    marginBottom: 16,
-  },
-  shelfRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'flex-start',
-    gap: 16,
-    paddingHorizontal: 16,
-    zIndex: 2,
-  },
-  shelfBoard: {
-    height: 8,
-    borderRadius: 4,
-    marginTop: -4,
-    zIndex: 1,
-  },
-  spineWrapper: {
-    width: 60,
-    height: 230,
-  },
-  spineCard: {
-    flex: 1,
-    borderRadius: 6,
-    overflow: 'hidden',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#2E3135',
-  },
-  spineTop: {
-    paddingTop: 16,
-    paddingBottom: 16,
-    alignItems: 'center',
-  },
-  spinePill: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    minWidth: 28,
-    alignItems: 'center',
-  },
-  spinePillText: {
-    color: '#000',
-    fontWeight: 'bold',
-    fontSize: 13,
-  },
-  verticalTextContainer: {
-    flex: 1,
-    alignItems: 'center',
-    paddingTop: 8,
-  },
-  verticalCharText: {
-    fontFamily: Fonts?.serif,
-    fontSize: 18,
-    color: Colors.dark.text,
-    lineHeight: 22,
-    textAlign: 'center',
-  },
-  spineBottom: {
-    width: '100%',
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  spineBottomText: {
-    color: '#000',
-    fontSize: 11,
-    fontFamily: Fonts?.sans,
-  },
-  newSpine: {
-    width: 60,
-    height: 190,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: '#2E3135',
-    borderStyle: 'dashed',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#0F1014',
   },
   // List View Styles
   listContainer: {
