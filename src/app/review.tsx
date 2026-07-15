@@ -19,6 +19,8 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { useReviewSession, VocabItem } from "../hooks/useReviewSession";
 import { getVocabById } from "../db/repositories/cardRepository";
 import { getCardFlags, setBookmarked, setSuspended } from "../db/repositories/collectionsRepository";
+import { getEtymology, Etymology } from "../db/repositories/etymologyRepository";
+import { EtymologyCard } from "../components/ui/EtymologyCard";
 import { ActivityIndicator } from "react-native";
 import { PitchAccent } from "../components/ui/PitchAccent";
 
@@ -52,6 +54,7 @@ export default function Review() {
 
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [isSuspended, setIsSuspended] = useState(false);
+  const [etymology, setEtymology] = useState<Etymology | null>(null);
 
   useEffect(() => {
     if (!isDictionaryMode) return;
@@ -93,6 +96,17 @@ export default function Review() {
       setIsBookmarked(flags.bookmarked);
       setIsSuspended(flags.suspended);
     }
+  }, [currentItem?.id]);
+
+  // 詞源（語源）：僅核心詞有資料；查無即隱藏區塊。
+  useEffect(() => {
+    setEtymology(null);
+    if (!currentItem?.id) return;
+    let cancelled = false;
+    getEtymology(currentItem.id).then((result) => {
+      if (!cancelled) setEtymology(result);
+    });
+    return () => { cancelled = true; };
   }, [currentItem?.id]);
 
   const handleToggleBookmark = () => {
@@ -305,6 +319,14 @@ export default function Review() {
               </TouchableOpacity>
             );
           })}
+        </View>
+      )}
+
+      {/* Etymology (word origin) — 僅核心詞有資料 */}
+      {etymology && (
+        <View style={styles.sectionArea}>
+          <Text style={styles.sectionTitle}>詞源</Text>
+          <EtymologyCard etymology={etymology} />
         </View>
       )}
 

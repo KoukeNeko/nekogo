@@ -130,6 +130,23 @@ export interface ApiSearchResults {
   decks: ApiSearchDeck[];
 }
 
+export interface ApiEtymologyStage {
+  form: string;
+  /** 純ひらがな；外語原詞、中古漢語等無假名讀音的節點為 null。 */
+  reading: string | null;
+  period: string;
+  note: string | null;
+}
+
+export interface ApiEtymology {
+  originType: string;
+  stages: ApiEtymologyStage[];
+  explanationZh: string;
+  confidence: string;
+  source: string | null;
+  sourceUrl: string | null;
+}
+
 // --- row → 物件映射（對照 store.go 的 scan* + rawOrArray/nullInt/nullStr）---
 
 // JSON 欄位為 null/空 → null（對照 Vocab.Furigana：NULL 序列化為 null）。
@@ -269,6 +286,35 @@ export const fetchVocabDetail = async (vocabId: string): Promise<ApiVocabDetail>
     ).rows ?? [];
   const kanji: ApiKanji[] = kanjiRows.map(rowToKanji);
   return { ...rowToVocab(base), examples, kanji };
+};
+
+/** 單字詞源（語源）。查無資料或內容庫尚無 vocab_etymology 表（舊版副本）皆回傳 null。 */
+export const fetchVocabEtymology = async (vocabId: string): Promise<ApiEtymology | null> => {
+  let row: any;
+  try {
+    row = db.executeSync(
+      `SELECT origin_type, evolution, explanation_zh, confidence, source, source_url` +
+        ` FROM ${C}.vocab_etymology WHERE vocab_id = ?`,
+      [vocabId],
+    ).rows?.[0];
+  } catch {
+    return null;
+  }
+  if (!row) {
+    return null;
+  }
+  const evolution = parseJsonOrNull<{ stages: ApiEtymologyStage[] }>(row.evolution);
+  if (!evolution?.stages?.length) {
+    return null;
+  }
+  return {
+    originType: row.origin_type,
+    stages: evolution.stages,
+    explanationZh: row.explanation_zh,
+    confidence: row.confidence,
+    source: row.source ?? null,
+    sourceUrl: row.source_url ?? null,
+  };
 };
 
 /** 含某漢字的單字（筆順頁相關單字）。 */
