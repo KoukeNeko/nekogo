@@ -47,6 +47,11 @@ const GLOSS_FIXES = [
     reading: 'おまいり',
     gloss_zh: '參拜（神社、寺廟、墓地）',
   },
+  {
+    expression: '初詣',
+    reading: 'はつもうで',
+    gloss_zh: '初詣；新年首次參拜（神社、寺院）',
+  },
 ];
 
 const db = new DatabaseSync(CONTENT_DB_PATH);

@@ -38,8 +38,9 @@ export const CONTENT_ALIAS = 'content';
 // v29：補「燥ぐ（はしゃぐ）」詞源（はしやぐ乾燥義→江戸轉義喧鬧；語源由来辞典）與繁中釋義（原缺譯），vocab_etymology 共 20 筆。
 // v30：補「参る（まいる）」（まゐ＋入る；謙譲語原理）與「お参り」（お＋参り派生）詞源＋兩者繁中釋義（原缺譯），vocab_etymology 共 22 筆。
 // v31：新增 meta 表（content_version 蓋章）；掛載時核對版本，抓「檔名新、內容舊」的走樣副本（Metro 資產快取曾造成 v30 副本缺 参る/お参り）。另補 お参り 詞源出典（デジタル大辞泉）。
+// v32：補「初詣（はつもうで）」詞源（詣づ＝まゐ＋出づ；1885 年鐵道時代新詞，平山昇研究）與繁中釋義（原缺譯），vocab_etymology 共 23 筆。
 // ※ bump 版本後記得執行 node scripts/etl/sync-content-version.mjs 重新蓋章。
-const CONTENT_DB_FILE = 'kioku-content-v31.db';
+const CONTENT_DB_FILE = 'kioku-content-v32.db';
 // 舊版副本檔名：複製新版時順手清掉，避免 134MB 級的孤兒檔佔用空間。
 const STALE_CONTENT_DB_FILES = [
   'kioku-content-v4.db',
@@ -69,6 +70,7 @@ const STALE_CONTENT_DB_FILES = [
   'kioku-content-v28.db',
   'kioku-content-v29.db',
   'kioku-content-v30.db',
+  'kioku-content-v31.db',
 ];
 const DEST_URI = `${FileSystem.documentDirectory}${CONTENT_DB_FILE}`;
 const DEST_PATH = DEST_URI.replace('file://', '');
