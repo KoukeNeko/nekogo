@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert, Linking } from "react-native";
+import { useEffect, useState } from "react";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { Colors, Spacing, BORDER_RADIUS, Fonts } from "../constants/theme";
+import { Colors, Spacing, Fonts } from "../constants/theme";
 import { ChevronLeft } from "lucide-react-native";
 import { AppBar } from "../components/ui/AppBar";
 import { BackButton } from "../components/ui/BackButton";
-import { SettingsCard, SettingsRow, SettingsDivider, SettingsSwitchRow } from "../components/ui/SettingsCard";
+import { SettingsCard, SettingsRow, SettingsDivider } from "../components/ui/SettingsCard";
 import { useSettings, StrokeSpeed } from "../context/SettingsContext";
 import { getReviewLogCount, optimizeParameters } from "../services/fsrsOptimizer";
 import { MIN_REVIEWS_TO_OPTIMIZE } from "../services/fsrsTraining";
@@ -21,43 +21,12 @@ import {
 import { applyStoredParameters } from "../services/fsrs";
 import { cleanupContentAssetCaches, getContentAssetCacheBytes } from "../db/contentDb";
 
-const DummySlider = ({ width = 100, fillPercent = 80, color = Colors.dark.primaryOrange }) => {
-  return (
-    <View style={{ width, height: 4, backgroundColor: '#2E3135', borderRadius: 2, justifyContent: 'center', marginHorizontal: 12 }}>
-      <View style={{ width: `${fillPercent}%`, height: '100%', backgroundColor: color, borderRadius: 2 }} />
-      <View style={{
-        position: 'absolute',
-        left: `${fillPercent}%`,
-        width: 16,
-        height: 16,
-        borderRadius: 8,
-        backgroundColor: '#FFF',
-        marginLeft: -8,
-        shadowColor: '#000',
-        shadowOpacity: 0.2,
-        shadowOffset: { width: 0, height: 2 },
-        shadowRadius: 2,
-        elevation: 2
-      }} />
-    </View>
-  );
-};
-
 export default function SettingsScreen() {
   const router = useRouter();
 
-  const [furiganaEnabled, setFuriganaEnabled] = useState(true);
-  const [autoPlayEnabled, setAutoPlayEnabled] = useState(true);
-  const [soundEffectEnabled, setSoundEffectEnabled] = useState(false);
-  const [reminderEnabled, setReminderEnabled] = useState(true);
-
-  const [cardOrder, setCardOrder] = useState<'追加順' | 'ランダム'>('追加順');
   const [dailyNewLimit, setDailyNewLimitState] = useState<number>(() => getDailyNewLimit());
   const [targetRetention, setTargetRetentionState] = useState<number>(() => getTargetRetention());
   const [cacheBytes, setCacheBytes] = useState<number | null>(null);
-  const [pitchAccent, setPitchAccent] = useState<'上線' | '数字'>('上線');
-  const [displayFont, setDisplayFont] = useState<'明朝' | 'ゴシック'>('明朝');
-  const [themeMode, setThemeMode] = useState<'システム' | 'ライト' | 'ダーク'>('ダーク');
 
   const { strokeSpeed, setStrokeSpeed, translationLanguage, setTranslationLanguage } = useSettings();
 
@@ -113,27 +82,19 @@ export default function SettingsScreen() {
     }
   };
 
-  const renderSegment = (options: string[], active: string, onChange: (val: any) => void, activeBg = '#202636') => (
+  const renderSegment = (options: string[], active: string, onChange: (value: string) => void) => (
     <View style={styles.segmentControl}>
-      {options.map((opt, index) => {
+      {options.map((opt) => {
         const isActive = active === opt;
-        // Special case for pitch accent colors
-        const bg = isActive ? (opt === '上線' || opt === '数字' ? '#5CB3FF' : activeBg) : 'transparent';
-        const color = isActive ? (opt === '上線' || opt === '数字' ? '#000' : '#FFF') : Colors.dark.textSecondary;
 
         return (
-          <React.Fragment key={opt}>
-            <TouchableOpacity
-              style={[styles.segmentButton, { backgroundColor: bg }]}
-              onPress={() => onChange(opt)}
-            >
-              <Text style={[styles.segmentText, { color, fontWeight: isActive ? 'bold' : 'normal' }]}>{opt}</Text>
-            </TouchableOpacity>
-            {/* Show divider for pitch accent only */}
-            {index === 0 && options.includes('上線') && (
-              <Text style={styles.segmentDivider}>＼</Text>
-            )}
-          </React.Fragment>
+          <TouchableOpacity
+            key={opt}
+            style={[styles.segmentButton, isActive && styles.segmentButtonActive]}
+            onPress={() => onChange(opt)}
+          >
+            <Text style={[styles.segmentText, isActive && styles.segmentTextActive]}>{opt}</Text>
+          </TouchableOpacity>
         );
       })}
     </View>
@@ -188,14 +149,6 @@ export default function SettingsScreen() {
             )}
           </SettingsRow>
           <SettingsDivider />
-          <SettingsRow label="1日の復習上限" valueText="無制限" showChevron onPress={() => { }} />
-          <SettingsDivider />
-          <SettingsRow label="学習ステップ" valueText="1m ・ 10m" showChevron onPress={() => { }} />
-          <SettingsDivider />
-          <SettingsRow label="新カードの順序">
-            {renderSegment(['追加順', 'ランダム'], cardOrder, setCardOrder)}
-          </SettingsRow>
-          <SettingsDivider />
           <SettingsRow
             label="パラメータ最適化"
             subLabel={
@@ -221,8 +174,6 @@ export default function SettingsScreen() {
         {/* Section 2: Display */}
         <Text style={styles.sectionHeaderLabel}>表示</Text>
         <SettingsCard>
-          <SettingsSwitchRow label="ふりがな（既定）" value={furiganaEnabled} onValueChange={setFuriganaEnabled} />
-          <SettingsDivider />
           <SettingsRow label="翻訳の言語" subLabel="語義と例文の表示言語">
             {renderSegment(
               ['繁體中文', 'English'],
@@ -231,59 +182,14 @@ export default function SettingsScreen() {
             )}
           </SettingsRow>
           <SettingsDivider />
-          <SettingsRow label="ピッチ表記">
-            {renderSegment(['上線', '数字'], pitchAccent, setPitchAccent)}
-          </SettingsRow>
-          <SettingsDivider />
-          <SettingsRow label="表示フォント">
-            {renderSegment(['明朝', 'ゴシック'], displayFont, setDisplayFont)}
-          </SettingsRow>
-          <SettingsDivider />
           <SettingsRow label="筆順アニメ速度">
             {renderSegment(['遅い', '標準', '速い'], getSpeedLabel(strokeSpeed), (val) => setStrokeSpeed(getSpeedValueFromLabel(val)))}
           </SettingsRow>
-          <SettingsDivider />
-          <View style={[styles.row, { flexDirection: 'column', alignItems: 'flex-start', gap: 12 }]}>
-            <Text style={styles.rowLabel}>テーマ</Text>
-            {renderSegment(['システム', 'ライト', 'ダーク'], themeMode, setThemeMode)}
-          </View>
-          <SettingsDivider />
-          <SettingsRow label="文字サイズ" valueText="標準">
-            <DummySlider width={60} fillPercent={50} color={Colors.dark.primaryOrange} />
-          </SettingsRow>
         </SettingsCard>
 
-        {/* Section 3: Audio */}
-        <Text style={styles.sectionHeaderLabel}>音声</Text>
+        {/* Section 3: Data */}
+        <Text style={styles.sectionHeaderLabel}>データ</Text>
         <SettingsCard>
-          <SettingsSwitchRow label="回答時に自動再生" value={autoPlayEnabled} onValueChange={setAutoPlayEnabled} />
-          <SettingsDivider />
-          <SettingsRow label="読み上げ音声" valueText="日本語・女性" showChevron onPress={() => { }} />
-          <SettingsDivider />
-          <SettingsRow label="読み上げ速度" valueText="0.9x">
-            <DummySlider width={60} fillPercent={75} color={Colors.dark.primaryOrange} />
-          </SettingsRow>
-          <SettingsDivider />
-          <SettingsSwitchRow label="効果音" value={soundEffectEnabled} onValueChange={setSoundEffectEnabled} />
-        </SettingsCard>
-
-        {/* Section 4: Notifications */}
-        <Text style={styles.sectionHeaderLabel}>通知</Text>
-        <SettingsCard>
-          <SettingsSwitchRow label="毎日のリマインダー" value={reminderEnabled} onValueChange={setReminderEnabled} />
-          <SettingsDivider />
-          <SettingsRow label="時刻" valueText="20:00" showChevron onPress={() => { }} />
-        </SettingsCard>
-
-        {/* Section 5: Data & Sync */}
-        <Text style={styles.sectionHeaderLabel}>データと同期</Text>
-        <SettingsCard>
-          <SettingsRow label="同期" valueText="近日公開" />
-          <SettingsDivider />
-          <SettingsRow label="Anki .apkg を取り込む" valueText="近日公開" />
-          <SettingsDivider />
-          <SettingsRow label="エクスポート" valueText="近日公開" />
-          <SettingsDivider />
           <SettingsRow
             label="キャッシュを削除"
             valueText={cacheBytes == null ? '…' : `${(cacheBytes / (1024 * 1024)).toFixed(1)} MB`}
@@ -291,7 +197,7 @@ export default function SettingsScreen() {
           />
         </SettingsCard>
 
-        {/* Section 6: About / Legal */}
+        {/* Section 4: About / Legal */}
         <Text style={styles.sectionHeaderLabel}>情報</Text>
         <SettingsCard>
           <SettingsRow
@@ -337,10 +243,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: Colors.dark.text,
   },
-  sliderValueText: {
-    fontSize: 14,
-    color: Colors.dark.textSecondary,
-  },
   scrollContent: {
     paddingTop: 24,
     padding: Spacing.three,
@@ -370,17 +272,6 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.two,
     paddingHorizontal: Spacing.one,
   },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-    minHeight: 52,
-  },
-  rowLabel: {
-    color: Colors.dark.text,
-    fontSize: 15,
-  },
   segmentControl: {
     flexDirection: 'row',
     backgroundColor: '#0F1014',
@@ -396,13 +287,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  segmentButtonActive: {
+    backgroundColor: '#202636',
+  },
   segmentText: {
     fontSize: 13,
-  },
-  segmentDivider: {
     color: Colors.dark.textSecondary,
-    paddingHorizontal: 4,
-    alignSelf: 'center',
+  },
+  segmentTextActive: {
+    color: '#FFF',
+    fontWeight: 'bold',
   },
   actionButton: {
     backgroundColor: Colors.dark.primaryOrange,
@@ -414,29 +308,6 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontWeight: 'bold',
     fontSize: 14,
-  },
-  greenDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#66D283',
-    marginRight: 6,
-  },
-  proBadge: {
-    borderWidth: 1,
-    borderColor: Colors.dark.primaryOrange,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  proBadgeText: {
-    color: Colors.dark.primaryOrange,
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
-  logoutText: {
-    color: '#FF4A4A',
-    fontSize: 15,
   },
   footer: {
     alignItems: 'center',

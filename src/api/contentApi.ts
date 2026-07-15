@@ -236,6 +236,57 @@ export const fetchDeckVocab = async (deckId: string, limit?: number, offset?: nu
   return rows.map(rowToVocab);
 };
 
+/**
+ * 卡包內容搜尋：只在指定卡包內比對表記、讀音與中英文語義，並沿用卡包本身的排序。
+ * limit / offset 讓超大型卡包可由畫面逐頁載入，不需一次把所有詞彙放進記憶體。
+ */
+export const searchDeckVocab = async (
+  deckId: string,
+  query: string,
+  limit = 60,
+  offset = 0,
+): Promise<ApiVocab[]> => {
+  if (!deckExists(deckId)) {
+    throw new Error(`deck not found: ${deckId}`);
+  }
+
+  const normalizedQuery = query.trim();
+  if (!normalizedQuery) {
+    return fetchDeckVocab(deckId, limit, offset);
+  }
+
+  const like = `%${normalizedQuery}%`;
+  const rows =
+    db.executeSync(
+      `SELECT ${vocabColsV()} FROM ${C}.deck_vocab dv JOIN ${C}.vocab v ON dv.vocab_id = v.id` +
+        ` WHERE dv.deck_id = ?` +
+        ` AND (v.expression LIKE ? OR v.reading LIKE ? OR v.gloss LIKE ? OR v.gloss_zh LIKE ?)` +
+        ` ORDER BY dv.position IS NULL, dv.position ASC, v.intro_rank IS NULL, v.intro_rank ASC` +
+        ` LIMIT ? OFFSET ?`,
+      [deckId, like, like, like, like, limit, offset],
+    ).rows ?? [];
+  return rows.map(rowToVocab);
+};
+
+/** 指定卡包內符合搜尋條件的總筆數；空搜尋回傳卡包完整詞數。 */
+export const getDeckVocabCount = async (deckId: string, query = ''): Promise<number> => {
+  if (!deckExists(deckId)) {
+    throw new Error(`deck not found: ${deckId}`);
+  }
+
+  const normalizedQuery = query.trim();
+  if (!normalizedQuery) return deckMemberCount(deckId);
+
+  const like = `%${normalizedQuery}%`;
+  const row = db.executeSync(
+    `SELECT COUNT(*) AS c FROM ${C}.deck_vocab dv JOIN ${C}.vocab v ON dv.vocab_id = v.id` +
+      ` WHERE dv.deck_id = ?` +
+      ` AND (v.expression LIKE ? OR v.reading LIKE ? OR v.gloss LIKE ? OR v.gloss_zh LIKE ?)`,
+    [deckId, like, like, like, like],
+  ).rows?.[0] as { c?: number } | undefined;
+  return row?.c ?? 0;
+};
+
 /** 卡包成員精簡列（seed 專用）：id + introRank，依 intro_rank 升冪。回傳裸陣列。 */
 export const fetchDeckMembers = async (deckId: string): Promise<ApiDeckMember[]> => {
   const rows =
