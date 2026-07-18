@@ -57,6 +57,7 @@ export interface ApiVocab {
 }
 
 export interface ApiExample {
+  id: number;
   jp: string;
   furigana: FuriganaChunk[];
   en: string;
@@ -322,11 +323,12 @@ export const fetchVocabDetail = async (vocabId: string): Promise<ApiVocabDetail>
   }
   const exampleRows =
     db.executeSync(
-      `SELECT e.jp, e.furigana, ${exampleTextSql()} AS en FROM ${C}.example e` +
+      `SELECT e.id, e.jp, e.furigana, ${exampleTextSql()} AS en FROM ${C}.example e` +
         ` JOIN ${C}.vocab_example ve ON e.id = ve.example_id WHERE ve.vocab_id = ?`,
       [vocabId],
     ).rows ?? [];
   const examples: ApiExample[] = exampleRows.map((row: any) => ({
+    id: row.id,
     jp: row.jp,
     furigana: parseJsonArray<FuriganaChunk>(row.furigana),
     en: row.en,

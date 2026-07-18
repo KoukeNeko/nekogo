@@ -45,8 +45,9 @@ export const CONTENT_ALIAS = 'content';
 //      あなた敬避與敬意磨損、まだ＜いまだ、ちょっと＜ちと、こんな縮約…），3 筆入 skiplist；共 75 筆。
 // v35：例句 furigana 功能詞旗標（kuromoji 詞性標注 f:1＝助詞・助動詞，57,884 句）；例句標色改讀旗標，
 //      修正「半ば」送假名ば被文字白名單誤判為接續助詞的問題。
+// v36：補「半ば（なかば）」繁中釋義（原缺譯）；詳情頁例文改列多句（資料層一詞多例句，App 原僅顯示第一句）。
 // ※ bump 版本後記得執行 node scripts/etl/sync-content-version.mjs 重新蓋章。
-const CONTENT_DB_FILE = 'kioku-content-v35.db';
+const CONTENT_DB_FILE = 'kioku-content-v36.db';
 // 舊版副本檔名：複製新版時順手清掉，避免 134MB 級的孤兒檔佔用空間。
 const STALE_CONTENT_DB_FILES = [
   'kioku-content-v4.db',
@@ -80,6 +81,7 @@ const STALE_CONTENT_DB_FILES = [
   'kioku-content-v32.db',
   'kioku-content-v33.db',
   'kioku-content-v34.db',
+  'kioku-content-v35.db',
 ];
 const DEST_URI = `${FileSystem.documentDirectory}${CONTENT_DB_FILE}`;
 const DEST_PATH = DEST_URI.replace('file://', '');

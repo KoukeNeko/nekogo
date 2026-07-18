@@ -12,6 +12,7 @@ export interface FuriganaChunk {
 }
 
 export interface ExampleSentence {
+  id: number;
   jp: string;
   furigana: FuriganaChunk[];
   en: string;
@@ -37,6 +38,7 @@ export interface VocabItem {
   pitch: number | null;
   jlpt: number | null;
   example: ExampleSentence | null;
+  examples?: ExampleSentence[]; // 全部例句（詳情頁顯示多句）
   kanjiList: KanjiInfo[]; // 構成漢字
   fsrsCard: Card;
 }
@@ -100,7 +102,7 @@ export const useReviewSession = (deckId?: string, enabled: boolean = true) => {
         setDeck((prev) =>
           prev.map((item) =>
             item.id === vocabId
-              ? { ...item, example: detail.examples[0] ?? null, kanjiList: detail.kanji }
+              ? { ...item, example: detail.examples[0] ?? null, examples: detail.examples, kanjiList: detail.kanji }
               : item,
           ),
         );

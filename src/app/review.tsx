@@ -211,9 +211,21 @@ export default function Review() {
   // 讀音 / 例句 / 音高 / 構成漢字 皆由 content 庫充實後帶在 currentItem 上。
   const reading = readingOf(displayChunks);
   const expression = displayChunks.map((chunk) => chunk.ruby).join('');
+  // 例文最多顯示三句；譯文相同的句子視為重複跳過（Tanaka 語料常見多句日文對同一句翻譯）。
+  const exampleList = (() => {
+    const sourceExamples = currentItem.examples ?? (currentItem.example ? [currentItem.example] : []);
+    const seenTranslations = new Set<string>();
+    const picked: typeof sourceExamples = [];
+    for (const sentence of sourceExamples) {
+      if (seenTranslations.has(sentence.en)) continue;
+      seenTranslations.add(sentence.en);
+      picked.push(sentence);
+      if (picked.length === 3) break;
+    }
+    return picked;
+  })();
   const posLabels = parsePosLabels(currentItem.pos);
   const conjugations = buildConjugations(expression, currentItem.pos);
-  const example = currentItem.example;
   const pitch = currentItem.pitch;
   const kanjiList = currentItem.kanjiList;
 
@@ -320,10 +332,16 @@ export default function Review() {
       )}
 
       {/* Example Sentence Box (per-card, from Tanaka Corpus) */}
-      {example && (
+      {exampleList.length > 0 && (
         <View style={styles.sectionArea}>
           <Text style={styles.sectionTitle}>例文</Text>
-          <ExampleSentenceCard example={example} />
+          {exampleList.map((sentence, index) => (
+            <ExampleSentenceCard
+              key={sentence.id}
+              example={sentence}
+              style={index > 0 ? { marginTop: Spacing.three } : undefined}
+            />
+          ))}
         </View>
       )}
 

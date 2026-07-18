@@ -52,6 +52,11 @@ const GLOSS_FIXES = [
     reading: 'はつもうで',
     gloss_zh: '初詣；新年首次參拜（神社、寺院）',
   },
+  {
+    expression: '半ば',
+    reading: 'なかば',
+    gloss_zh: '一半；中途、半途；（年代、期間的）中段（３０代半ば）；（副詞性）半…、幾乎（半ば諦める）',
+  },
 ];
 
 const db = new DatabaseSync(CONTENT_DB_PATH);

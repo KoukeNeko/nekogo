@@ -111,6 +111,7 @@ export const getVocabById = async (vocabId: string): Promise<VocabItem | null> =
       pitch: detail.pitch ?? null,
       jlpt: detail.jlpt ?? null,
       example: detail.examples[0] ?? null,
+      examples: detail.examples,
       kanjiList: detail.kanji,
       fsrsCard: createNewCard(),
     };

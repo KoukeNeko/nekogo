@@ -124,13 +124,13 @@ const run = () => {
   const base = db.prepare(`SELECT ${VOCAB_COLS} FROM ${C}.vocab WHERE id = ?`).get(ids[0]);
   check('detail: base 存在', !!base);
   if (base) {
-    const exRows = db.prepare(`SELECT e.jp, e.furigana, e.en FROM ${C}.example e JOIN ${C}.vocab_example ve ON e.id = ve.example_id WHERE ve.vocab_id = ?`).all(ids[0]);
-    const examples = exRows.map((r) => ({ jp: r.jp, furigana: parseJsonArray(r.furigana), en: r.en }));
+    const exRows = db.prepare(`SELECT e.id, e.jp, e.furigana, e.en FROM ${C}.example e JOIN ${C}.vocab_example ve ON e.id = ve.example_id WHERE ve.vocab_id = ?`).all(ids[0]);
+    const examples = exRows.map((r) => ({ id: r.id, jp: r.jp, furigana: parseJsonArray(r.furigana), en: r.en }));
     const kanjiRows = db.prepare(`SELECT k.char, k.strokes, k.stroke_count, k.jlpt, k.on_readings, k.kun_readings, k.meanings FROM ${C}.kanji k JOIN ${C}.vocab_kanji vk ON k.char = vk.char WHERE vk.vocab_id = ?`).all(ids[0]);
     const kanji = kanjiRows.map(rowToKanji);
     const detail = { ...rowToVocab(base), examples, kanji };
     assertVocab(detail, 'detail');
-    check('detail: examples ApiExample[]', Array.isArray(detail.examples) && detail.examples.every((e) => isStr(e.jp) && isStr(e.en) && isFuriganaArr(e.furigana)));
+    check('detail: examples ApiExample[]', Array.isArray(detail.examples) && detail.examples.every((e) => isNum(e.id) && isStr(e.jp) && isStr(e.en) && isFuriganaArr(e.furigana)));
     check('detail: kanji ApiKanji[]', Array.isArray(detail.kanji) && detail.kanji.every((k) => isStr(k.char) && Array.isArray(k.strokes) && k.strokes.every(isStr) && Array.isArray(k.on) && Array.isArray(k.kun) && Array.isArray(k.meanings) && isNumOrNull(k.strokeCount) && isNumOrNull(k.jlpt)));
   }
 
