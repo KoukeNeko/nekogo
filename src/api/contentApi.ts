@@ -38,6 +38,8 @@ const vocabColsV = () =>
 export interface FuriganaChunk {
   ruby: string;
   rt?: string;
+  /** 功能詞旗標（助詞・助動詞；例句標色用）。 */
+  f?: number;
 }
 
 export interface ApiVocab {

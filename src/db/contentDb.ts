@@ -43,8 +43,10 @@ export const CONTENT_ALIAS = 'content';
 //      被覆形／露出形（目・上）、和語曆日系統（ふつか〜いつか）、字音雙層（一二万分円回時）…），5 筆無定說入 skiplist；共 58 筆。
 // v34：詞源夜間批次 3——再入 17 筆（だれ＜たれ與黄昏、できる系曆日詞補完（むいか〜ここのか）、仕事＝し＋こと、
 //      あなた敬避與敬意磨損、まだ＜いまだ、ちょっと＜ちと、こんな縮約…），3 筆入 skiplist；共 75 筆。
+// v35：例句 furigana 功能詞旗標（kuromoji 詞性標注 f:1＝助詞・助動詞，57,884 句）；例句標色改讀旗標，
+//      修正「半ば」送假名ば被文字白名單誤判為接續助詞的問題。
 // ※ bump 版本後記得執行 node scripts/etl/sync-content-version.mjs 重新蓋章。
-const CONTENT_DB_FILE = 'kioku-content-v34.db';
+const CONTENT_DB_FILE = 'kioku-content-v35.db';
 // 舊版副本檔名：複製新版時順手清掉，避免 134MB 級的孤兒檔佔用空間。
 const STALE_CONTENT_DB_FILES = [
   'kioku-content-v4.db',
@@ -77,6 +79,7 @@ const STALE_CONTENT_DB_FILES = [
   'kioku-content-v31.db',
   'kioku-content-v32.db',
   'kioku-content-v33.db',
+  'kioku-content-v34.db',
 ];
 const DEST_URI = `${FileSystem.documentDirectory}${CONTENT_DB_FILE}`;
 const DEST_PATH = DEST_URI.replace('file://', '');
