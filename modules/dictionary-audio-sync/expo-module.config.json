@@ -1,0 +1,10 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": {
+    "modules": ["DictionaryAudioSyncModule"],
+    "appDelegateSubscribers": ["DictionaryAudioSyncAppDelegateSubscriber"]
+  },
+  "android": {
+    "modules": ["expo.modules.dictionaryaudiosync.DictionaryAudioSyncModule"]
+  }
+}

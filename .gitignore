@@ -51,6 +51,7 @@ assets/db/*.db
 
 # fsrs-native 原生模組的 Gradle 快取（建置產物，不入版控）
 modules/fsrs-native/android/.gradle/
+modules/*/android/build/
 
 # 規劃日誌（本機工作檔，不入版控）
 PROPOSED_PLAN.md
