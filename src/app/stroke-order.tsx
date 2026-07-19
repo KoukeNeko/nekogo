@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Volume2, PenTool } from 'lucide-react-native';
+import { Volume2, PenTool, Info } from 'lucide-react-native';
+import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { Colors, Spacing, Fonts, BORDER_RADIUS } from '../constants/theme';
 import { AppBar } from '../components/ui/AppBar';
 import { KanjiStrokeBoard } from '../components/ui/KanjiStrokeBoard';
@@ -12,6 +13,7 @@ import { FuriganaText } from '../components/ui/FuriganaText';
 import { ExampleSentenceCard } from '../components/ui/ExampleSentenceCard';
 import { BackButton } from '../components/ui/BackButton';
 import { speakJapanese } from '../utils/speech';
+import { TechnicalInfoSheet } from '../components/ui/technical-info-sheet';
 
 const { width } = Dimensions.get('window');
 
@@ -44,6 +46,7 @@ export default function StrokeOrder() {
 
     const [words, setWords] = useState<RelatedWord[]>([]);
     const [examples, setExamples] = useState<RelatedExample[]>([]);
+    const technicalInfoSheetRef = useRef<BottomSheetModal>(null);
 
     useEffect(() => {
         let cancelled = false;
@@ -74,6 +77,32 @@ export default function StrokeOrder() {
         setTrigger(prev => prev + 1);
     };
 
+    const unicodeCodePoint = `U+${kanjiChar.codePointAt(0)?.toString(16).toUpperCase().padStart(4, '0')}`;
+    const technicalInfoSections = [
+        {
+            title: '漢字',
+            rows: [
+                { label: '文字', value: kanjiChar },
+                { label: 'Unicode', value: unicodeCodePoint },
+                { label: '画数', value: String(entry.strokeCount ?? paths.length) },
+            ],
+        },
+        {
+            title: '表示中の単語',
+            rows: words.map((word, index) => ({
+                label: `単語 ${index + 1}`,
+                value: `ID: ${word.id}\n音声 ID: vocab:${word.id}\n${word.expression}`,
+            })),
+        },
+        {
+            title: '表示中の例文',
+            rows: examples.map((example, index) => ({
+                label: `例文 ${index + 1}`,
+                value: `ID: ${example.id}\n音声 ID: example:${example.id}\n${example.jp}`,
+            })),
+        },
+    ];
+
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
             {/* Header */}
@@ -82,7 +111,17 @@ export default function StrokeOrder() {
                 centerContent={
                     <Text style={styles.headerTitle}>{kanjiChar}</Text>
                 }
-                rightContent={<View style={{ width: 40 }} />}
+                rightContent={
+                    <TouchableOpacity
+                        accessibilityRole="button"
+                        accessibilityLabel="技術情報を表示"
+                        onPress={() => technicalInfoSheetRef.current?.present()}
+                        style={styles.infoButton}
+                        activeOpacity={0.7}
+                    >
+                        <Info size={21} color={Colors.dark.textSecondary} />
+                    </TouchableOpacity>
+                }
             />
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
@@ -198,6 +237,11 @@ export default function StrokeOrder() {
                 </View>
                 <View style={{ height: 60 }} />
             </ScrollView>
+            <TechnicalInfoSheet
+                modalRef={technicalInfoSheetRef}
+                sections={technicalInfoSections}
+                title="漢字の技術情報"
+            />
         </SafeAreaView>
     );
 }
@@ -211,6 +255,14 @@ const styles = StyleSheet.create({
         color: Colors.dark.text,
         fontSize: 18,
         fontWeight: 'bold',
+    },
+    infoButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#1C1D22',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     scrollContent: {
         paddingHorizontal: Spacing.four,

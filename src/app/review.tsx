@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
-import { X, Volume2, Bookmark, EyeOff, PenTool } from "lucide-react-native";
+import { X, Volume2, Bookmark, EyeOff, Info, PenTool } from "lucide-react-native";
+import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import Svg, { Line, Circle } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
 import { Colors, Spacing, Fonts, BORDER_RADIUS } from "../constants/theme";
@@ -24,6 +25,7 @@ import { ActivityIndicator } from "react-native";
 import { PitchAccent } from "../components/ui/PitchAccent";
 import { prefetchJapaneseAudio, speakJapanese } from "../utils/speech";
 import { isDictionaryAudioEntryId } from "../services/dictionaryAudio";
+import { TechnicalInfoSheet } from "../components/ui/technical-info-sheet";
 
 interface FuriganaSegment {
     ruby: string;
@@ -52,6 +54,7 @@ export default function Review() {
   const [etymology, setEtymology] = useState<Etymology | null>(null);
   // 本場複習的評分統計（結算畫面用）；重新開始時歸零。
   const [ratingCounts, setRatingCounts] = useState<Partial<Record<Rating, number>>>({});
+  const technicalInfoSheetRef = useRef<BottomSheetModal>(null);
 
   useEffect(() => {
     if (!isDictionaryMode) return;
@@ -238,6 +241,24 @@ export default function Review() {
   const conjugations = buildConjugations(expression, currentItem.pos);
   const pitch = currentItem.pitch;
   const kanjiList = currentItem.kanjiList;
+  const technicalInfoSections = [
+    {
+      title: '単語',
+      rows: [
+        { label: '単語 ID', value: currentItem.id },
+        { label: '音声 ID', value: currentVocabAudioEntryId ?? 'なし' },
+        { label: '表記', value: expression },
+        { label: '読み', value: reading || 'なし' },
+      ],
+    },
+    {
+      title: '例文',
+      rows: exampleList.map((sentence, index) => ({
+        label: `例文 ${index + 1}`,
+        value: `ID: ${sentence.id}\n音声 ID: example:${sentence.id}\n${sentence.jp}`,
+      })),
+    },
+  ];
   const handleKanjiReplay = (k: string) => {
     setKanjiTriggers(prev => ({ ...prev, [k]: (prev[k] || 0) + 1 }));
   };
@@ -441,11 +462,20 @@ export default function Review() {
           )
         }
         rightContent={
-          isDictionaryMode ? (
-            <View style={{ width: 40 }} />
-          ) : (
-            <Text style={styles.progressText}>{currentIndex}/{totalCards}</Text>
-          )
+          <View style={styles.appBarRight}>
+            {!isDictionaryMode && (
+              <Text style={styles.progressText}>{currentIndex}/{totalCards}</Text>
+            )}
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="技術情報を表示"
+              onPress={() => technicalInfoSheetRef.current?.present()}
+              style={styles.infoButton}
+              activeOpacity={0.7}
+            >
+              <Info size={21} color={Colors.dark.textSecondary} />
+            </TouchableOpacity>
+          </View>
         }
       />
 
@@ -477,6 +507,10 @@ export default function Review() {
           )}
         </LinearGradient>
       )}
+      <TechnicalInfoSheet
+        modalRef={technicalInfoSheetRef}
+        sections={technicalInfoSections}
+      />
     </SafeAreaView>
   );
 }
@@ -507,7 +541,19 @@ const styles = StyleSheet.create({
     color: Colors.dark.textSecondary,
     fontSize: 14,
     fontFamily: Fonts?.mono,
-    marginLeft: Spacing.three,
+  },
+  appBarRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  infoButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#1C1D22',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   toggleRow: {
     flexDirection: 'row',
