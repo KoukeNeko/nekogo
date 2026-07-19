@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ChevronLeft, Volume2, PenTool, EyeOff, Eye } from 'lucide-react-native';
+import { Volume2, PenTool } from 'lucide-react-native';
 import { Colors, Spacing, Fonts, BORDER_RADIUS } from '../constants/theme';
 import { AppBar } from '../components/ui/AppBar';
 import { KanjiStrokeBoard } from '../components/ui/KanjiStrokeBoard';
@@ -82,9 +82,7 @@ export default function StrokeOrder() {
                 centerContent={
                     <Text style={styles.headerTitle}>{kanjiChar}</Text>
                 }
-                rightContent={
-                    <View style={{ width: 40 }} />
-                }
+                rightContent={<View style={{ width: 40 }} />}
             />
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
@@ -118,7 +116,7 @@ export default function StrokeOrder() {
                     <View style={styles.infoBoxBorder} />
                     <View style={styles.infoBox}>
                         <Text style={styles.infoBoxLabel} numberOfLines={1} adjustsFontSizeToFit>頻度</Text>
-                        <Text style={styles.infoBoxValue} numberOfLines={1} adjustsFontSizeToFit>{entry.frequency || '-'} <Text style={{ color: Colors.dark.pitchBlue }}>○</Text></Text>
+                        <Text style={styles.infoBoxValue} numberOfLines={1} adjustsFontSizeToFit>{entry.frequency || '-'} <Text style={{ color: Colors.dark.pitchLine }}>○</Text></Text>
                     </View>
                     <View style={styles.infoBoxBorder} />
                     <View style={styles.infoBox}>
@@ -181,19 +179,20 @@ export default function StrokeOrder() {
                     </View>
 
                     <View style={styles.listContainer}>
-                        {tab === 'words' && words.map((w, idx) => (
+                        {tab === 'words' && words.map((w) => (
                             <ExampleSentenceCard
-                                key={`word-${idx}`}
+                                key={w.id}
                                 example={{
                                     jp: w.expression,
                                     en: w.gloss.split(';')[0],
                                     furigana: w.furigana
                                 }}
+                                audioEntryId={`vocab:${w.id}`}
                                 onPress={() => router.push(`/review?vocabId=${w.id}`)}
                             />
                         ))}
-                        {tab === 'sentences' && examples.map((e, idx) => (
-                            <ExampleSentenceCard key={`ex-${idx}`} example={e} />
+                        {tab === 'sentences' && examples.map((e) => (
+                            <ExampleSentenceCard key={e.id} example={e} />
                         ))}
                     </View>
                 </View>
@@ -280,7 +279,7 @@ const styles = StyleSheet.create({
     },
     infoBoxValueBadge: {
         backgroundColor: '#1E2D3D',
-        color: Colors.dark.pitchBlue,
+        color: Colors.dark.pitchLine,
         paddingHorizontal: 6,
         paddingVertical: 2,
         borderRadius: 4,

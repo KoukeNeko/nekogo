@@ -1,22 +1,31 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StyleProp, ViewStyle } from 'react-native';
 import { Volume2 } from 'lucide-react-native';
 import { FuriganaText } from './FuriganaText';
 import { Colors, Spacing, BORDER_RADIUS, Fonts } from '../../constants/theme';
-import { speakJapanese } from '../../utils/speech';
+import { prefetchJapaneseAudio, speakJapanese } from '../../utils/speech';
 
 interface ExampleSentenceCardProps {
     example: {
+        id?: number;
         jp: string;
         en: string;
         furigana: any[];
     };
     style?: StyleProp<ViewStyle>;
     onPress?: () => void;
+    audioEntryId?: string;
 }
 
-export const ExampleSentenceCard: React.FC<ExampleSentenceCardProps> = ({ example, style, onPress }) => {
+export const ExampleSentenceCard: React.FC<ExampleSentenceCardProps> = ({ example, style, onPress, audioEntryId }) => {
     const Container = onPress ? TouchableOpacity : View;
+    const entryId = audioEntryId ?? (example.id != null ? `example:${example.id}` : undefined);
+
+    useEffect(() => {
+        if (!entryId) return;
+        void prefetchJapaneseAudio(entryId);
+    }, [entryId]);
+
     return (
         <Container 
             style={[styles.sentenceContainer, style]} 
@@ -27,7 +36,15 @@ export const ExampleSentenceCard: React.FC<ExampleSentenceCardProps> = ({ exampl
                 <View style={styles.sentenceTextWrap}>
                     <FuriganaText chunks={example.furigana} fontSize={20} align="flex-start" kanaColor="#5AC8FA" />
                 </View>
-                <TouchableOpacity style={styles.speakerButton} onPress={() => speakJapanese(example.jp)}>
+                <TouchableOpacity
+                    style={styles.speakerButton}
+                    accessibilityRole="button"
+                    accessibilityLabel="音声を再生"
+                    onPress={(event) => {
+                        event.stopPropagation();
+                        void speakJapanese(example.jp, entryId);
+                    }}
+                >
                     <Volume2 size={20} color={Colors.dark.primaryOrange} />
                 </TouchableOpacity>
             </View>

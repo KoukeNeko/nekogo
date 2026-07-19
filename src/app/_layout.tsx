@@ -14,6 +14,7 @@ import * as FsrsNative from '../../modules/fsrs-native'; // Slice 0 工具鏈探
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { CustomSplashScreen } from '../components/ui/CustomSplashScreen';
+import { releaseSpeechResources } from '../utils/speech';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -32,6 +33,8 @@ export default function RootLayout() {
     'LINESeedJP-Regular': require('../../assets/fonts/LINESeedJP_A_OTF_Rg.otf'),
     'LINESeedJP-Bold': require('../../assets/fonts/LINESeedJP_A_OTF_Bd.otf'),
   });
+
+  useEffect(() => () => releaseSpeechResources(), []);
 
   // 主庫建表 → 掛載打包的唯讀內容庫 → 為「目標牌組」（預設範圍）成員增量建卡（個人 FSRS 紀錄留本機）。
   // 失敗（多半是內容庫掛載/建卡出錯）會顯示錯誤＋再試行，而非靜默空白。

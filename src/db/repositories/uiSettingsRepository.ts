@@ -69,3 +69,42 @@ export const setTargetRetention = (retention: number): void => {
     [TARGET_RETENTION_KEY, String(retention)],
   );
 };
+
+/** 預產日文語音 API。空字串代表停用線上語音、只使用裝置 TTS。 */
+export const DEFAULT_TTS_SERVER_URL =
+  process.env.EXPO_PUBLIC_TTS_SERVER_URL?.trim() || 'http://192.168.50.169:8090';
+const TTS_SERVER_URL_KEY = 'tts_server_url';
+
+export const normalizeTtsServerUrl = (rawValue: string): string => {
+  const value = rawValue.trim();
+  if (!value) return '';
+
+  const parsed = new URL(value);
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error('音声サーバーは http:// または https:// で始めてください');
+  }
+  if (parsed.username || parsed.password || parsed.search || parsed.hash) {
+    throw new Error('音声サーバー URL に認証情報・クエリ・フラグメントは指定できません');
+  }
+  return parsed.toString().replace(/\/$/, '');
+};
+
+export const getTtsServerUrl = (): string => {
+  try {
+    const row = db.executeSync('SELECT value FROM kv WHERE key = ?', [TTS_SERVER_URL_KEY])
+      .rows?.[0] as { value?: string } | undefined;
+    if (row?.value === undefined) return DEFAULT_TTS_SERVER_URL;
+    return normalizeTtsServerUrl(row.value);
+  } catch {
+    return DEFAULT_TTS_SERVER_URL;
+  }
+};
+
+export const setTtsServerUrl = (url: string): string => {
+  const normalized = normalizeTtsServerUrl(url);
+  db.executeSync(
+    'INSERT INTO kv (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+    [TTS_SERVER_URL_KEY, normalized],
+  );
+  return normalized;
+};

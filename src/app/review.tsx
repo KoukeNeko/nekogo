@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
-import { X, Volume2, Bookmark, EyeOff } from "lucide-react-native";
+import { X, Volume2, Bookmark, EyeOff, PenTool } from "lucide-react-native";
 import Svg, { Line, Circle } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
 import { Colors, Spacing, Fonts, BORDER_RADIUS } from "../constants/theme";
@@ -12,7 +12,6 @@ import { ExampleSentenceCard } from '../components/ui/ExampleSentenceCard';
 import { AppBar } from '../components/ui/AppBar';
 import { Rating } from "ts-fsrs";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { PenTool } from "lucide-react-native";
 import { BackButton } from "../components/ui/BackButton";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useReviewSession, VocabItem } from "../hooks/useReviewSession";
@@ -23,7 +22,8 @@ import { EtymologyCard } from "../components/ui/EtymologyCard";
 import { parsePosLabels, buildConjugations } from "../services/grammar";
 import { ActivityIndicator } from "react-native";
 import { PitchAccent } from "../components/ui/PitchAccent";
-import { speakJapanese } from "../utils/speech";
+import { prefetchJapaneseAudio, speakJapanese } from "../utils/speech";
+import { isDictionaryAudioEntryId } from "../services/dictionaryAudio";
 
 interface FuriganaSegment {
     ruby: string;
@@ -86,6 +86,16 @@ export default function Review() {
   const upcomingIntervals = session.upcomingIntervals;
   const handleRate = session.handleRate;
   const resetSession = session.resetSession;
+  const currentExpression = currentItem?.kanji.map((chunk) => chunk.ruby).join('') ?? '';
+  const currentVocabAudioCandidate = currentItem?.id != null ? `vocab:${currentItem.id}` : undefined;
+  const currentVocabAudioEntryId = currentVocabAudioCandidate && isDictionaryAudioEntryId(currentVocabAudioCandidate)
+    ? currentVocabAudioCandidate
+    : undefined;
+
+  useEffect(() => {
+    if (!currentVocabAudioEntryId || !currentExpression) return;
+    void prefetchJapaneseAudio(currentVocabAudioEntryId);
+  }, [currentExpression, currentVocabAudioEntryId]);
 
   useEffect(() => {
     if (currentItem?.id) {
@@ -210,7 +220,7 @@ export default function Review() {
 
   // 讀音 / 例句 / 音高 / 構成漢字 皆由 content 庫充實後帶在 currentItem 上。
   const reading = readingOf(displayChunks);
-  const expression = displayChunks.map((chunk) => chunk.ruby).join('');
+  const expression = currentExpression;
   // 例文最多顯示三句；譯文相同的句子視為重複跳過（Tanaka 語料常見多句日文對同一句翻譯）。
   const exampleList = (() => {
     const sourceExamples = currentItem.examples ?? (currentItem.example ? [currentItem.example] : []);
@@ -228,7 +238,6 @@ export default function Review() {
   const conjugations = buildConjugations(expression, currentItem.pos);
   const pitch = currentItem.pitch;
   const kanjiList = currentItem.kanjiList;
-
   const handleKanjiReplay = (k: string) => {
     setKanjiTriggers(prev => ({ ...prev, [k]: (prev[k] || 0) + 1 }));
   };
@@ -254,7 +263,7 @@ export default function Review() {
       <View style={styles.wordContainer}>
         <FuriganaText chunks={displayChunks} fontSize={56} />
       </View>
-      <TouchableOpacity style={styles.speakerButtonCenter} onPress={() => speakJapanese(reading)}>
+      <TouchableOpacity style={styles.speakerButtonCenter} onPress={() => speakJapanese(expression, currentVocabAudioEntryId)}>
         <Volume2 size={24} color={Colors.dark.primaryOrange} />
       </TouchableOpacity>
     </View>
@@ -293,7 +302,7 @@ export default function Review() {
         </View>
 
         <View style={styles.pitchRightArea}>
-          <TouchableOpacity style={styles.speakerButtonSmall} onPress={() => speakJapanese(reading)}>
+          <TouchableOpacity style={styles.speakerButtonSmall} onPress={() => speakJapanese(expression, currentVocabAudioEntryId)}>
             <Volume2 size={20} color={Colors.dark.pitchLine} />
           </TouchableOpacity>
         </View>

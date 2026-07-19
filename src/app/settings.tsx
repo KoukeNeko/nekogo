@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Colors, Spacing, Fonts } from "../constants/theme";
@@ -17,16 +17,28 @@ import {
   TARGET_RETENTION_OPTIONS,
   getTargetRetention,
   setTargetRetention,
+  getTtsServerUrl,
+  normalizeTtsServerUrl,
+  setTtsServerUrl,
 } from "../db/repositories/uiSettingsRepository";
 import { applyStoredParameters } from "../services/fsrs";
 import { cleanupContentAssetCaches, getContentAssetCacheBytes } from "../db/contentDb";
+import {
+  checkTtsServer,
+  clearDictionaryAudioCache,
+  getDictionaryAudioCacheBytes,
+} from "../services/dictionaryAudio";
 
 export default function SettingsScreen() {
   const router = useRouter();
 
   const [dailyNewLimit, setDailyNewLimitState] = useState<number>(() => getDailyNewLimit());
   const [targetRetention, setTargetRetentionState] = useState<number>(() => getTargetRetention());
-  const [cacheBytes, setCacheBytes] = useState<number | null>(null);
+  const [contentCacheBytes, setContentCacheBytes] = useState<number | null>(null);
+  const [ttsCacheBytes, setTtsCacheBytes] = useState<number>(() => getDictionaryAudioCacheBytes());
+  const [savedTtsServerUrl, setSavedTtsServerUrl] = useState(() => getTtsServerUrl());
+  const [ttsServerUrlInput, setTtsServerUrlInput] = useState(savedTtsServerUrl);
+  const [testingTtsServer, setTestingTtsServer] = useState(false);
 
   const { strokeSpeed, setStrokeSpeed, translationLanguage, setTranslationLanguage } = useSettings();
 
@@ -40,14 +52,53 @@ export default function SettingsScreen() {
     } catch (error) {
       console.error('讀取複習筆數失敗', error);
     }
-    getContentAssetCacheBytes().then(setCacheBytes).catch(() => setCacheBytes(0));
+    getContentAssetCacheBytes().then(setContentCacheBytes).catch(() => setContentCacheBytes(0));
   }, []);
 
   const handleClearCache = async () => {
     await cleanupContentAssetCaches();
     const remainingBytes = await getContentAssetCacheBytes().catch(() => 0);
-    setCacheBytes(remainingBytes);
+    setContentCacheBytes(remainingBytes);
     Alert.alert('キャッシュを削除', 'コンテンツキャッシュを削除しました');
+  };
+
+  const handleSaveTtsServer = () => {
+    try {
+      const normalized = setTtsServerUrl(ttsServerUrlInput);
+      if (normalized !== savedTtsServerUrl) {
+        clearDictionaryAudioCache();
+        setTtsCacheBytes(0);
+      }
+      setSavedTtsServerUrl(normalized);
+      setTtsServerUrlInput(normalized);
+      Alert.alert('音声サーバー', normalized ? 'サーバー URL を保存しました' : 'オンライン音声を無効にしました');
+    } catch (error) {
+      Alert.alert('音声サーバー', error instanceof Error ? error.message : 'URL が正しくありません');
+    }
+  };
+
+  const handleTestTtsServer = async () => {
+    if (testingTtsServer) return;
+    try {
+      const normalized = normalizeTtsServerUrl(ttsServerUrlInput);
+      if (!normalized) {
+        Alert.alert('接続確認', '先に音声サーバー URL を入力してください');
+        return;
+      }
+      setTestingTtsServer(true);
+      const result = await checkTtsServer(normalized);
+      Alert.alert('接続確認', `接続できました\n${result.audioProfile}`);
+    } catch (error) {
+      Alert.alert('接続確認', `接続できませんでした\n${error instanceof Error ? error.message : '不明なエラー'}`);
+    } finally {
+      setTestingTtsServer(false);
+    }
+  };
+
+  const handleClearTtsCache = () => {
+    clearDictionaryAudioCache();
+    setTtsCacheBytes(0);
+    Alert.alert('音声キャッシュ', 'ダウンロード済み音声を削除しました');
   };
 
   const handleOptimize = async () => {
@@ -187,17 +238,50 @@ export default function SettingsScreen() {
           </SettingsRow>
         </SettingsCard>
 
-        {/* Section 3: Data */}
+        {/* Section 3: Audio */}
+        <Text style={styles.sectionHeaderLabel}>音声</Text>
+        <SettingsCard>
+          <View style={styles.serverEditor}>
+            <Text style={styles.serverEditorLabel}>音声サーバー</Text>
+            <Text style={styles.serverEditorSubLabel}>空欄にすると端末の読み上げのみを使用します</Text>
+            <TextInput
+              value={ttsServerUrlInput}
+              onChangeText={setTtsServerUrlInput}
+              placeholder="http://192.168.50.169:8090"
+              placeholderTextColor="#555861"
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+              style={styles.serverInput}
+            />
+            <View style={styles.serverActions}>
+              <TouchableOpacity style={styles.secondaryButton} onPress={() => void handleTestTtsServer()} disabled={testingTtsServer}>
+                <Text style={styles.secondaryButtonText}>{testingTtsServer ? '確認中…' : '接続確認'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.saveButton} onPress={handleSaveTtsServer}>
+                <Text style={styles.saveButtonText}>保存</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+          <SettingsDivider />
+          <SettingsRow
+            label="音声キャッシュを削除"
+            valueText={`${(ttsCacheBytes / (1024 * 1024)).toFixed(1)} MB`}
+            onPress={handleClearTtsCache}
+          />
+        </SettingsCard>
+
+        {/* Section 4: Data */}
         <Text style={styles.sectionHeaderLabel}>データ</Text>
         <SettingsCard>
           <SettingsRow
             label="キャッシュを削除"
-            valueText={cacheBytes == null ? '…' : `${(cacheBytes / (1024 * 1024)).toFixed(1)} MB`}
+            valueText={contentCacheBytes == null ? '…' : `${(contentCacheBytes / (1024 * 1024)).toFixed(1)} MB`}
             onPress={handleClearCache}
           />
         </SettingsCard>
 
-        {/* Section 4: About / Legal */}
+        {/* Section 5: About / Legal */}
         <Text style={styles.sectionHeaderLabel}>情報</Text>
         <SettingsCard>
           <SettingsRow
@@ -308,6 +392,59 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontWeight: 'bold',
     fontSize: 14,
+  },
+  serverEditor: {
+    paddingVertical: 14,
+  },
+  serverEditorLabel: {
+    color: Colors.dark.text,
+    fontSize: 15,
+  },
+  serverEditorSubLabel: {
+    color: Colors.dark.textSecondary,
+    fontSize: 12,
+    marginTop: Spacing.one,
+  },
+  serverInput: {
+    marginTop: Spacing.three,
+    borderWidth: 1,
+    borderColor: '#2E3135',
+    borderRadius: 8,
+    backgroundColor: '#0F1014',
+    color: Colors.dark.text,
+    fontFamily: Fonts?.mono,
+    fontSize: 13,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  serverActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: Spacing.two,
+    marginTop: Spacing.three,
+  },
+  secondaryButton: {
+    borderWidth: 1,
+    borderColor: '#2E3135',
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  secondaryButtonText: {
+    color: Colors.dark.textSecondary,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  saveButton: {
+    backgroundColor: Colors.dark.primaryOrange,
+    borderRadius: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+  },
+  saveButtonText: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: 'bold',
   },
   footer: {
     alignItems: 'center',
