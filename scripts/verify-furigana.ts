@@ -43,7 +43,7 @@ function verifyFurigana() {
     }
 }
 
-// Only run if executed directly
-if (require.main === module) {
+// Only run if executed directly with Node's TypeScript stripping.
+if (process.argv[1]?.endsWith('verify-furigana.ts')) {
     verifyFurigana();
 }
