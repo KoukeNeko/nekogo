@@ -2,10 +2,59 @@ package main
 
 import (
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 )
+
+func TestLoadDotEnvLoadsQuotedValuesAndPreservesExistingEnvironment(t *testing.T) {
+	path := filepath.Join(t.TempDir(), ".env")
+	if err := os.WriteFile(path, []byte("# local workers\nTEST_DOTENV_NAME=\"RTX 2070\"\nTEST_DOTENV_EXISTING=file\n"), 0o600); err != nil {
+		t.Fatalf("write dotenv fixture: %v", err)
+	}
+	for _, key := range []string{"TEST_DOTENV_NAME", "TEST_DOTENV_EXISTING"} {
+		oldValue, existed := os.LookupEnv(key)
+		if err := os.Unsetenv(key); err != nil {
+			t.Fatalf("unset %s: %v", key, err)
+		}
+		t.Cleanup(func() {
+			if existed {
+				_ = os.Setenv(key, oldValue)
+			} else {
+				_ = os.Unsetenv(key)
+			}
+		})
+	}
+	if err := os.Setenv("TEST_DOTENV_EXISTING", "shell"); err != nil {
+		t.Fatalf("set existing environment: %v", err)
+	}
+	if err := loadDotEnv(path); err != nil {
+		t.Fatalf("loadDotEnv: %v", err)
+	}
+	if got := os.Getenv("TEST_DOTENV_NAME"); got != "RTX 2070" {
+		t.Fatalf("quoted dotenv value = %q", got)
+	}
+	if got := os.Getenv("TEST_DOTENV_EXISTING"); got != "shell" {
+		t.Fatalf("existing environment was overwritten with %q", got)
+	}
+}
+
+func TestBackendPresentationRecognizesPersistedWorkerIDs(t *testing.T) {
+	for _, test := range []struct {
+		id, name, kind string
+	}{
+		{"gpu", "RTX 4070 Ti", "gpu"},
+		{"cpu", "i7-12700K", "cpu"},
+		{"gpu2", "RTX 2070", "gpu"},
+	} {
+		name, kind := backendPresentation(test.id)
+		if name != test.name || kind != test.kind {
+			t.Fatalf("backendPresentation(%q) = %q/%q, want %q/%q", test.id, name, kind, test.name, test.kind)
+		}
+	}
+}
 
 func TestLoadConfigUsesLegacyGPUURLFallbackAndCPUSettings(t *testing.T) {
 	setValidGradioEnvironment(t)

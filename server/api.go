@@ -105,6 +105,7 @@ func (a *apiServer) handleDictionaryAudioStatus(response http.ResponseWriter, re
 			"completed_count":          backend.completed,
 			"failed_count":             backend.failed,
 			"current_failed_count":     backend.terminalJobs,
+			"unresolved_failed_count":  backend.terminalJobs,
 			"average_duration_seconds": averageSeconds,
 			"throughput_per_minute":    workerRate,
 			"last_error":               backend.lastError,
@@ -126,7 +127,8 @@ func (a *apiServer) handleDictionaryAudioStatus(response http.ResponseWriter, re
 	}
 	for _, backend := range progress.backends {
 		if _, ok := seen[backend.backend]; !ok {
-			appendWorker(backend.backend, backend.backend, "unknown", 0)
+			displayName, kind := backendPresentation(backend.backend)
+			appendWorker(backend.backend, displayName, kind, 0)
 		}
 	}
 	state := "idle"

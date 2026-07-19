@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"net/url"
 	"os"
@@ -232,6 +233,85 @@ func (cfg config) gradioBackendConfigs() []gradioBackendConfig {
 		})
 	}
 	return backends
+}
+
+func backendPresentation(id string) (string, string) {
+	switch id {
+	case "gpu":
+		return "RTX 4070 Ti", "gpu"
+	case "cpu":
+		return "i7-12700K", "cpu"
+	case "gpu2":
+		return "RTX 2070", "gpu"
+	case "primary":
+		return "Primary API", "api"
+	default:
+		return id, "unknown"
+	}
+}
+
+func loadDotEnv(path string) error {
+	file, err := os.Open(path)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("open %s: %w", path, err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for lineNumber := 1; scanner.Scan(); lineNumber++ {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		line = strings.TrimSpace(strings.TrimPrefix(line, "export "))
+		key, value, found := strings.Cut(line, "=")
+		key = strings.TrimSpace(key)
+		value = strings.TrimSpace(value)
+		if !found || !validEnvKey(key) {
+			return fmt.Errorf("%s:%d contains an invalid environment assignment", path, lineNumber)
+		}
+		if len(value) > 0 && (value[0] == '\'' || value[0] == '"') {
+			quote := value[0]
+			if len(value) < 2 || value[len(value)-1] != quote {
+				return fmt.Errorf("%s:%d contains an unterminated quoted value", path, lineNumber)
+			}
+			if quote == '\'' {
+				value = value[1 : len(value)-1]
+			} else {
+				value, err = strconv.Unquote(value)
+				if err != nil {
+					return fmt.Errorf("%s:%d contains an invalid quoted value: %w", path, lineNumber, err)
+				}
+			}
+		}
+		if _, exists := os.LookupEnv(key); exists {
+			continue
+		}
+		if err := os.Setenv(key, value); err != nil {
+			return fmt.Errorf("set %s from %s:%d: %w", key, path, lineNumber, err)
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("read %s: %w", path, err)
+	}
+	return nil
+}
+
+func validEnvKey(key string) bool {
+	if key == "" {
+		return false
+	}
+	for index := 0; index < len(key); index++ {
+		value := key[index]
+		if (value >= 'A' && value <= 'Z') || (value >= 'a' && value <= 'z') || value == '_' || (index > 0 && value >= '0' && value <= '9') {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func validateBaseURL(name, rawURL string) error {

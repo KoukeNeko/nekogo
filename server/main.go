@@ -17,6 +17,10 @@ func main() {
 
 func run(args []string) int {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	if err := loadDotEnv(".env"); err != nil {
+		logger.Error("load local environment", "error", err)
+		return 1
+	}
 	command := "serve"
 	commandArgs := args
 	if len(args) > 0 {

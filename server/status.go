@@ -127,7 +127,8 @@ func loadStatusView(ctx context.Context, cfg config, service *audioService) (sta
 	}
 	for _, backend := range progress.backends {
 		if _, ok := seen[backend.backend]; !ok {
-			appendWorker(backend.backend, backend.backend, "unknown")
+			displayName, kind := backendPresentation(backend.backend)
+			appendWorker(backend.backend, displayName, kind)
 		}
 	}
 	return view, nil
@@ -171,7 +172,7 @@ func renderStatusDashboard(view statusView, width int) string {
 		}
 		lines = append(lines,
 			fmt.Sprintf("%-13s %-4s %-11s %s", worker.displayName, state, strings.ToUpper(worker.kind), activity),
-			fmt.Sprintf("  completed %d · %.2f/min · avg %s · failed %d (current %d)",
+			fmt.Sprintf("  completed %d · %.2f/min · avg %s · failures %d total · %d unresolved",
 				worker.completed, worker.perMinute, formatAverageDuration(worker.averageDuration), worker.failed, worker.terminalJobs),
 		)
 		if worker.lastError != "" {

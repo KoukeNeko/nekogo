@@ -40,7 +40,7 @@ func TestRenderStatusDashboardShowsDetailedWorkerActivity(t *testing.T) {
 		"25 / 100 ready · 75 remaining · 5.0 MiB",
 		"RTX 4070 Ti   RUN  GPU         example:42",
 		"RTX 2070      RUN  GPU         vocab:7",
-		"completed 5 · 1.00/min · avg 1.0m · failed 1 (current 1)",
+		"completed 5 · 1.00/min · avg 1.0m · failures 1 total · 1 unresolved",
 		"last error: temporary upstream error",
 		"updated 01:02:03",
 	} {

@@ -35,10 +35,11 @@ Go 1.25 or newer is required.
 cd server
 cp .env.example .env
 cp tts-overrides.example.json tts-overrides.json
-set -a
-. ./.env
-set +a
 ```
+
+All Go Server commands automatically load `./.env` without overwriting values
+already exported by the invoking shell. Running `go run . status` directly from
+this directory therefore uses the same worker names and endpoints as `serve`.
 
 The default `IRODORI_API_MODE=gradio` uses named Irodori Gradio workers. The
 primary RTX 4070 Ti defaults to `http://192.168.50.169:7860` with `cuda/fp32`;
@@ -114,7 +115,7 @@ go run . status
 On a terminal, the command updates a multi-line progress UI with ready/expected,
 queued/running/failed counts, bytes, aggregate throughput, ETA, and one detailed
 row per named worker. Each worker row includes its current entry ID, cumulative
-completions and failures, average generation time, and throughput. It exits
+completions, total/unresolved failures, average generation time, and throughput. It exits
 automatically at 100%; press Ctrl-C to stop monitoring without affecting
 generation. For scripts, `go run . status -once` emits one stable timestamped
 line. `-interval 5s` changes the refresh interval.
