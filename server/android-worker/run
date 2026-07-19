@@ -1,0 +1,6 @@
+#!/data/data/com.termux/files/usr/bin/sh
+exec 2>&1
+cd "$HOME/nekogo-phone-worker" || exit 1
+export HF_HUB_DISABLE_XET=1
+export TOKENIZERS_PARALLELISM=false
+exec python -u bridge.py

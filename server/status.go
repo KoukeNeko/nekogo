@@ -171,7 +171,7 @@ func renderStatusDashboard(view statusView, width int) string {
 			activity = worker.activeEntryID
 		}
 		lines = append(lines,
-			fmt.Sprintf("%-13s %-4s %-11s %s", worker.displayName, state, strings.ToUpper(worker.kind), activity),
+			fmt.Sprintf("%-18s %-4s %-11s %s", worker.displayName, state, strings.ToUpper(worker.kind), activity),
 			fmt.Sprintf("  completed %d · %.2f/min · avg %s · failures %d total · %d unresolved",
 				worker.completed, worker.perMinute, formatAverageDuration(worker.averageDuration), worker.failed, worker.terminalJobs),
 		)

@@ -32,14 +32,16 @@ func TestRenderStatusDashboardShowsDetailedWorkerActivity(t *testing.T) {
 		workers: []workerStatusView{
 			{displayName: "RTX 4070 Ti", kind: "gpu", running: 1, activeEntryID: "example:42", completed: 20, perMinute: 2, averageDuration: 30 * time.Second},
 			{displayName: "RTX 2070", kind: "gpu", running: 1, activeEntryID: "vocab:7", completed: 5, perMinute: 1, averageDuration: time.Minute, failed: 1, terminalJobs: 1, lastError: "temporary upstream error"},
+			{displayName: "Nothing Phone (3)", kind: "android", running: 1, activeEntryID: "vocab:9", completed: 1, perMinute: 0.5, averageDuration: 2 * time.Minute},
 		},
 		updatedAt: time.Date(2026, 7, 20, 1, 2, 3, 0, time.Local),
 	}, 12)
 	for _, expected := range []string{
 		"Overall  [███░░░░░░░░░]  25.00%",
 		"25 / 100 ready · 75 remaining · 5.0 MiB",
-		"RTX 4070 Ti   RUN  GPU         example:42",
-		"RTX 2070      RUN  GPU         vocab:7",
+		"RTX 4070 Ti        RUN  GPU         example:42",
+		"RTX 2070           RUN  GPU         vocab:7",
+		"Nothing Phone (3)  RUN  ANDROID     vocab:9",
 		"completed 5 · 1.00/min · avg 1.0m · failures 1 total · 1 unresolved",
 		"last error: temporary upstream error",
 		"updated 01:02:03",

@@ -35,6 +35,14 @@ type config struct {
 	irodoriCPUCodecDevice     string
 	irodoriCPUCodecPrecision  string
 	cpuMaxTextRunes           int
+	androidEnabled            bool
+	androidName               string
+	androidBaseURL            string
+	androidModelDevice        string
+	androidModelPrecision     string
+	androidCodecDevice        string
+	androidCodecPrecision     string
+	androidMaxTextRunes       int
 	irodoriAPIKey             string
 	irodoriCheckpoint         string
 	ffmpegPath                string
@@ -78,8 +86,13 @@ func loadConfig() (config, error) {
 	apiMode := strings.ToLower(envString("IRODORI_API_MODE", "gradio"))
 	cpuEnabled := false
 	gpu2Enabled := false
+	androidEnabled := false
 	if apiMode == "gradio" {
 		cpuEnabled, err = envBool("IRODORI_CPU_ENABLED", false)
+		if err != nil {
+			return config{}, err
+		}
+		androidEnabled, err = envBool("IRODORI_ANDROID_ENABLED", false)
 		if err != nil {
 			return config{}, err
 		}
@@ -115,6 +128,14 @@ func loadConfig() (config, error) {
 		irodoriCPUCodecDevice:     strings.ToLower(envString("IRODORI_CPU_CODEC_DEVICE", "cpu")),
 		irodoriCPUCodecPrecision:  strings.ToLower(envString("IRODORI_CPU_CODEC_PRECISION", "fp32")),
 		cpuMaxTextRunes:           envInt("CPU_MAX_TEXT_RUNES", 20),
+		androidEnabled:            androidEnabled,
+		androidName:               envString("IRODORI_ANDROID_NAME", "Nothing Phone (3)"),
+		androidBaseURL:            strings.TrimRight(strings.TrimSpace(os.Getenv("IRODORI_ANDROID_BASE_URL")), "/"),
+		androidModelDevice:        strings.ToLower(envString("IRODORI_ANDROID_MODEL_DEVICE", "cpu")),
+		androidModelPrecision:     strings.ToLower(envString("IRODORI_ANDROID_MODEL_PRECISION", "fp32")),
+		androidCodecDevice:        strings.ToLower(envString("IRODORI_ANDROID_CODEC_DEVICE", "cpu")),
+		androidCodecPrecision:     strings.ToLower(envString("IRODORI_ANDROID_CODEC_PRECISION", "fp32")),
+		androidMaxTextRunes:       envInt("ANDROID_MAX_TEXT_RUNES", 4),
 		irodoriAPIKey:             os.Getenv("IRODORI_API_KEY"),
 		irodoriCheckpoint:         envString("IRODORI_GRADIO_CHECKPOINT", "Aratako/Irodori-TTS-500M-v3"),
 		ffmpegPath:                envString("FFMPEG_PATH", "ffmpeg"),
@@ -168,9 +189,20 @@ func loadConfig() (config, error) {
 				return config{}, err
 			}
 		}
+		if cfg.androidEnabled {
+			if err := validateBaseURL("IRODORI_ANDROID_BASE_URL", cfg.androidBaseURL); err != nil {
+				return config{}, err
+			}
+			if err := validateRuntime("IRODORI_ANDROID", cfg.androidModelDevice, cfg.androidModelPrecision, cfg.androidCodecDevice, cfg.androidCodecPrecision); err != nil {
+				return config{}, err
+			}
+		}
 	}
 	if cfg.irodoriAPIMode == "gradio" && cfg.irodoriCPUEnabled && cfg.cpuMaxTextRunes < 1 {
 		return config{}, fmt.Errorf("CPU_MAX_TEXT_RUNES must be at least 1")
+	}
+	if cfg.irodoriAPIMode == "gradio" && cfg.androidEnabled && cfg.androidMaxTextRunes < 1 {
+		return config{}, fmt.Errorf("ANDROID_MAX_TEXT_RUNES must be at least 1")
 	}
 	if cfg.maxConcurrentSynthesis < 1 {
 		return config{}, fmt.Errorf("MAX_CONCURRENT_SYNTHESIS must be at least 1")
@@ -232,6 +264,19 @@ func (cfg config) gradioBackendConfigs() []gradioBackendConfig {
 			codecPrecision: cfg.irodoriGPU2CodecPrecision,
 		})
 	}
+	if cfg.androidEnabled {
+		backends = append(backends, gradioBackendConfig{
+			id:             "android",
+			displayName:    cfg.androidName,
+			kind:           "android",
+			baseURL:        cfg.androidBaseURL,
+			modelDevice:    cfg.androidModelDevice,
+			modelPrecision: cfg.androidModelPrecision,
+			codecDevice:    cfg.androidCodecDevice,
+			codecPrecision: cfg.androidCodecPrecision,
+			maxTextRunes:   cfg.androidMaxTextRunes,
+		})
+	}
 	return backends
 }
 
@@ -243,6 +288,8 @@ func backendPresentation(id string) (string, string) {
 		return "i7-12700K", "cpu"
 	case "gpu2":
 		return "RTX 2070", "gpu"
+	case "android":
+		return "Nothing Phone (3)", "android"
 	case "primary":
 		return "Primary API", "api"
 	default:

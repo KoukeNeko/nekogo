@@ -80,7 +80,7 @@ func (a *apiServer) handleDictionaryAudioStatus(response http.ResponseWriter, re
 	}
 	workers := make([]map[string]any, 0, len(a.backends))
 	seen := make(map[string]struct{})
-	var gpuCompleted, cpuCompleted int64
+	var gpuCompleted, cpuCompleted, androidCompleted int64
 	var perMinute float64
 	appendWorker := func(id, displayName, kind string, maxTextRunes int) {
 		backend := progressByID[id]
@@ -114,6 +114,8 @@ func (a *apiServer) handleDictionaryAudioStatus(response http.ResponseWriter, re
 			gpuCompleted += backend.completed
 		} else if kind == "cpu" {
 			cpuCompleted += backend.completed
+		} else if kind == "android" {
+			androidCompleted += backend.completed
 		}
 		perMinute += workerRate
 		seen[id] = struct{}{}
@@ -170,6 +172,7 @@ func (a *apiServer) handleDictionaryAudioStatus(response http.ResponseWriter, re
 		"eta_seconds":           etaSeconds,
 		"gpu_completed":         gpuCompleted,
 		"cpu_completed":         cpuCompleted,
+		"android_completed":     androidCompleted,
 		"workers":               workers,
 	})
 }

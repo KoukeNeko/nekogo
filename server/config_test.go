@@ -48,6 +48,7 @@ func TestBackendPresentationRecognizesPersistedWorkerIDs(t *testing.T) {
 		{"gpu", "RTX 4070 Ti", "gpu"},
 		{"cpu", "i7-12700K", "cpu"},
 		{"gpu2", "RTX 2070", "gpu"},
+		{"android", "Nothing Phone (3)", "android"},
 	} {
 		name, kind := backendPresentation(test.id)
 		if name != test.name || kind != test.kind {
@@ -64,6 +65,10 @@ func TestLoadConfigUsesLegacyGPUURLFallbackAndCPUSettings(t *testing.T) {
 	t.Setenv("IRODORI_CPU_BASE_URL", "http://cpu.example:7862/")
 	t.Setenv("IRODORI_GPU2_ENABLED", "true")
 	t.Setenv("IRODORI_GPU2_BASE_URL", "https://gpu2.example/")
+	t.Setenv("IRODORI_ANDROID_ENABLED", "true")
+	t.Setenv("IRODORI_ANDROID_NAME", "Nothing Phone (3)")
+	t.Setenv("IRODORI_ANDROID_BASE_URL", "http://android.example:7864/")
+	t.Setenv("ANDROID_MAX_TEXT_RUNES", "4")
 	t.Setenv("CPU_MAX_TEXT_RUNES", "24")
 
 	cfg, err := loadConfig()
@@ -84,6 +89,9 @@ func TestLoadConfigUsesLegacyGPUURLFallbackAndCPUSettings(t *testing.T) {
 	}
 	if cfg.irodoriCPUModelDevice != "cpu" || cfg.irodoriCPUModelPrecision != "fp32" || cfg.irodoriCPUCodecDevice != "cpu" || cfg.irodoriCPUCodecPrecision != "fp32" {
 		t.Fatalf("unexpected CPU runtime config: %#v", cfg)
+	}
+	if !cfg.androidEnabled || cfg.androidBaseURL != "http://android.example:7864" || cfg.androidMaxTextRunes != 4 {
+		t.Fatalf("unexpected Android config: enabled=%t url=%q max_runes=%d", cfg.androidEnabled, cfg.androidBaseURL, cfg.androidMaxTextRunes)
 	}
 }
 
@@ -152,6 +160,30 @@ func TestLoadConfigRejectsInvalidBackendSettings(t *testing.T) {
 			},
 			wantError: "CPU_MAX_TEXT_RUNES must be at least 1",
 		},
+		{
+			name: "invalid Android enable flag",
+			configure: func(t *testing.T) {
+				t.Setenv("IRODORI_ANDROID_ENABLED", "sometimes")
+			},
+			wantError: "IRODORI_ANDROID_ENABLED is invalid",
+		},
+		{
+			name: "missing Android URL",
+			configure: func(t *testing.T) {
+				t.Setenv("IRODORI_ANDROID_ENABLED", "true")
+				t.Setenv("IRODORI_ANDROID_BASE_URL", "")
+			},
+			wantError: "IRODORI_ANDROID_BASE_URL",
+		},
+		{
+			name: "zero Android text limit",
+			configure: func(t *testing.T) {
+				t.Setenv("IRODORI_ANDROID_ENABLED", "true")
+				t.Setenv("IRODORI_ANDROID_BASE_URL", "http://android.example:7864")
+				t.Setenv("ANDROID_MAX_TEXT_RUNES", "0")
+			},
+			wantError: "ANDROID_MAX_TEXT_RUNES must be at least 1",
+		},
 	}
 
 	for _, test := range tests {
@@ -172,6 +204,7 @@ func TestLoadConfigOpenAIModeIgnoresDualGradioSettings(t *testing.T) {
 	t.Setenv("IRODORI_BASE_URL", "http://openai.example:8088")
 	t.Setenv("IRODORI_CPU_ENABLED", "not-a-boolean")
 	t.Setenv("IRODORI_GPU2_ENABLED", "not-a-boolean")
+	t.Setenv("IRODORI_ANDROID_ENABLED", "not-a-boolean")
 	t.Setenv("IRODORI_GPU_BASE_URL", "not-a-url")
 	t.Setenv("IRODORI_CPU_BASE_URL", "not-a-url")
 	t.Setenv("IRODORI_GPU_MODEL_DEVICE", "not-a-device")
@@ -212,6 +245,14 @@ func TestConfiguredSynthesisBackends(t *testing.T) {
 		irodoriCPUCodecDevice:     "cpu",
 		irodoriCPUCodecPrecision:  "fp32",
 		cpuMaxTextRunes:           20,
+		androidEnabled:            true,
+		androidName:               "Nothing Phone (3)",
+		androidBaseURL:            "http://android.example:7864",
+		androidModelDevice:        "cpu",
+		androidModelPrecision:     "fp32",
+		androidCodecDevice:        "cpu",
+		androidCodecPrecision:     "fp32",
+		androidMaxTextRunes:       4,
 		irodoriCheckpoint:         "checkpoint",
 		numSteps:                  60,
 		ffmpegPath:                "ffmpeg",
@@ -222,7 +263,7 @@ func TestConfiguredSynthesisBackends(t *testing.T) {
 	if err != nil {
 		t.Fatalf("configuredSynthesisBackends: %v", err)
 	}
-	if len(backends) != 3 || backends[0].name != "gpu" || backends[0].displayName != "RTX 4070 Ti" || backends[0].maxTextRunes != 0 || backends[1].name != "cpu" || backends[1].displayName != "i7-12700K" || backends[1].maxTextRunes != 20 || backends[2].name != "gpu2" || backends[2].displayName != "RTX 2070" || backends[2].maxTextRunes != 0 {
+	if len(backends) != 4 || backends[0].name != "gpu" || backends[0].displayName != "RTX 4070 Ti" || backends[0].maxTextRunes != 0 || backends[1].name != "cpu" || backends[1].displayName != "i7-12700K" || backends[1].maxTextRunes != 20 || backends[2].name != "gpu2" || backends[2].displayName != "RTX 2070" || backends[2].maxTextRunes != 0 || backends[3].name != "android" || backends[3].displayName != "Nothing Phone (3)" || backends[3].maxTextRunes != 4 {
 		t.Fatalf("unexpected backends: %#v", backends)
 	}
 	gpu, ok := backends[0].client.(*gradioClient)
@@ -236,6 +277,10 @@ func TestConfiguredSynthesisBackends(t *testing.T) {
 	gpu2, ok := backends[2].client.(*gradioClient)
 	if !ok || gpu2.baseURL != cfg.irodoriGPU2BaseURL || gpu2.modelDevice != "cuda" || gpu2.codecDevice != "cuda" || gpu2.httpClient != httpClient {
 		t.Fatalf("unexpected second GPU client: %#v", backends[2].client)
+	}
+	android, ok := backends[3].client.(*gradioClient)
+	if !ok || android.baseURL != cfg.androidBaseURL || android.modelDevice != "cpu" || android.codecDevice != "cpu" || android.httpClient != httpClient {
+		t.Fatalf("unexpected Android client: %#v", backends[3].client)
 	}
 }
 
@@ -274,10 +319,17 @@ func setValidGradioEnvironment(t *testing.T) {
 	t.Setenv("IRODORI_GPU_CODEC_PRECISION", "fp32")
 	t.Setenv("IRODORI_CPU_ENABLED", "false")
 	t.Setenv("IRODORI_GPU2_ENABLED", "false")
+	t.Setenv("IRODORI_ANDROID_ENABLED", "false")
 	t.Setenv("IRODORI_CPU_BASE_URL", "http://cpu.example:7862")
 	t.Setenv("IRODORI_CPU_MODEL_DEVICE", "cpu")
 	t.Setenv("IRODORI_CPU_MODEL_PRECISION", "fp32")
 	t.Setenv("IRODORI_CPU_CODEC_DEVICE", "cpu")
 	t.Setenv("IRODORI_CPU_CODEC_PRECISION", "fp32")
 	t.Setenv("CPU_MAX_TEXT_RUNES", "20")
+	t.Setenv("IRODORI_ANDROID_BASE_URL", "http://android.example:7864")
+	t.Setenv("IRODORI_ANDROID_MODEL_DEVICE", "cpu")
+	t.Setenv("IRODORI_ANDROID_MODEL_PRECISION", "fp32")
+	t.Setenv("IRODORI_ANDROID_CODEC_DEVICE", "cpu")
+	t.Setenv("IRODORI_ANDROID_CODEC_PRECISION", "fp32")
+	t.Setenv("ANDROID_MAX_TEXT_RUNES", "4")
 }

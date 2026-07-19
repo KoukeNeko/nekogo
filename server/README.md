@@ -56,6 +56,11 @@ separate OpenAI-compatible Irodori-TTS-Server is running. The synthesis profile
 is linear, 60 steps, text CFG 3.0, speaker CFG 5.0, and deterministic per-entry
 seeds. `IRODORI_BASE_URL` remains a temporary fallback alias for the GPU URL.
 
+An Android/Termux worker can be enabled with `IRODORI_ANDROID_ENABLED=true` and
+`IRODORI_ANDROID_BASE_URL`. The companion lightweight bridge is documented in
+`android-worker/README.md`. It uses `cpu/fp32`; keep `ANDROID_MAX_TEXT_RUNES`
+small so the phone handles short vocabulary without monopolizing long examples.
+
 ## Export a manifest
 
 From the App project root, export canonical content IDs and Japanese spelling:
