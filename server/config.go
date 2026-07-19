@@ -11,12 +11,19 @@ import (
 
 type config struct {
 	addr                   string
+	irodoriAPIMode         string
 	irodoriBaseURL         string
 	irodoriAPIKey          string
+	irodoriCheckpoint      string
+	ffmpegPath             string
 	appAPIKey              string
-	cacheDir               string
+	databasePath           string
+	contentDatabasePath    string
+	audioDir               string
 	overridesFile          string
 	defaultVoice           string
+	defaultFormat          string
+	defaultSpeed           float64
 	approvedVoices         map[string]struct{}
 	modelName              string
 	modelRevision          string
@@ -37,17 +44,24 @@ func loadConfig() (config, error) {
 
 	cfg := config{
 		addr:                   envString("SERVER_ADDR", ":8090"),
-		irodoriBaseURL:         strings.TrimRight(envString("IRODORI_BASE_URL", "http://192.168.50.169:8088"), "/"),
+		irodoriAPIMode:         strings.ToLower(envString("IRODORI_API_MODE", "gradio")),
+		irodoriBaseURL:         strings.TrimRight(envString("IRODORI_BASE_URL", "http://192.168.50.169:7860"), "/"),
 		irodoriAPIKey:          os.Getenv("IRODORI_API_KEY"),
+		irodoriCheckpoint:      envString("IRODORI_GRADIO_CHECKPOINT", "Aratako/Irodori-TTS-500M-v3"),
+		ffmpegPath:             envString("FFMPEG_PATH", "ffmpeg"),
 		appAPIKey:              os.Getenv("APP_API_KEY"),
-		cacheDir:               envString("CACHE_DIR", "./data/audio-cache"),
+		databasePath:           envString("DATABASE_PATH", "./data/tts.db"),
+		contentDatabasePath:    envString("CONTENT_DATABASE_PATH", "../assets/db/kioku-content.db"),
+		audioDir:               envString("AUDIO_DIR", "./data/audio"),
 		overridesFile:          strings.TrimSpace(os.Getenv("TTS_OVERRIDES_FILE")),
 		defaultVoice:           envString("DEFAULT_VOICE", "dictionary-ja-01"),
+		defaultFormat:          strings.ToLower(envString("DEFAULT_FORMAT", "m4a")),
+		defaultSpeed:           envFloat("DEFAULT_SPEED", 1.0),
 		approvedVoices:         parseSet(envString("APPROVED_VOICES", "dictionary-ja-01,none")),
 		modelName:              envString("IRODORI_MODEL_NAME", "irodori-tts"),
 		modelRevision:          envString("MODEL_REVISION", "Irodori-TTS-500M-v3"),
 		voiceVersion:           envString("VOICE_VERSION", "v1"),
-		profileVersion:         envString("PROFILE_VERSION", "quality-v1"),
+		profileVersion:         envString("PROFILE_VERSION", "quality-v2-no-trim"),
 		numSteps:               envInt("IRODORI_NUM_STEPS", 60),
 		maxConcurrentSynthesis: envInt("MAX_CONCURRENT_SYNTHESIS", 1),
 		rateLimitPerMinute:     envInt("RATE_LIMIT_PER_MINUTE", 60),
@@ -57,6 +71,9 @@ func loadConfig() (config, error) {
 
 	if _, err := url.ParseRequestURI(cfg.irodoriBaseURL); err != nil {
 		return config{}, fmt.Errorf("IRODORI_BASE_URL is invalid: %w", err)
+	}
+	if cfg.irodoriAPIMode != "gradio" && cfg.irodoriAPIMode != "openai" {
+		return config{}, fmt.Errorf("IRODORI_API_MODE must be gradio or openai")
 	}
 	if cfg.maxConcurrentSynthesis < 1 {
 		return config{}, fmt.Errorf("MAX_CONCURRENT_SYNTHESIS must be at least 1")
@@ -72,6 +89,12 @@ func loadConfig() (config, error) {
 	}
 	if _, ok := cfg.approvedVoices[cfg.defaultVoice]; !ok {
 		return config{}, fmt.Errorf("DEFAULT_VOICE must be present in APPROVED_VOICES")
+	}
+	if cfg.defaultFormat != "m4a" && cfg.defaultFormat != "aac" && cfg.defaultFormat != "opus" {
+		return config{}, fmt.Errorf("DEFAULT_FORMAT must be m4a, aac, or opus")
+	}
+	if cfg.defaultSpeed < 0.8 || cfg.defaultSpeed > 1.2 {
+		return config{}, fmt.Errorf("DEFAULT_SPEED must be between 0.8 and 1.2")
 	}
 	return cfg, nil
 }
@@ -89,6 +112,18 @@ func envInt(key string, fallback int) int {
 		return fallback
 	}
 	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		return fallback
+	}
+	return parsed
+}
+
+func envFloat(key string, fallback float64) float64 {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback
+	}
+	parsed, err := strconv.ParseFloat(value, 64)
 	if err != nil {
 		return fallback
 	}

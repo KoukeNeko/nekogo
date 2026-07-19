@@ -59,3 +59,5 @@ PROPOSED_PLAN.md
 # Go dictionary TTS API runtime files
 server/.env
 server/data/
+server/*.jsonl
+!server/manifest.example.jsonl

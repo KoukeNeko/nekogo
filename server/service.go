@@ -6,8 +6,8 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,8 +15,6 @@ import (
 	"time"
 	"unicode"
 )
-
-var errSynthesisQueueFull = errors.New("synthesis queue is full")
 
 type synthesisRequest struct {
 	entryID string
@@ -27,150 +25,266 @@ type synthesisRequest struct {
 	seed    uint32
 }
 
-type audioResult struct {
-	data     []byte
-	cacheKey string
-	cacheHit bool
-	format   string
+type prewarmResult struct {
+	asset   audioAsset
+	skipped bool
 }
 
-type inflightCall struct {
-	done   chan struct{}
-	result audioResult
-	err    error
+type synthesisClient interface {
+	synthesize(context.Context, synthesisRequest) ([]byte, error)
 }
 
 type audioService struct {
-	client           *irodoriClient
-	cacheDir         string
-	modelRevision    string
-	voiceVersion     string
-	profileVersion   string
-	requestTimeout   time.Duration
-	synthesisSlots   chan struct{}
-	mu               sync.Mutex
-	inflightRequests map[string]*inflightCall
+	client         synthesisClient
+	store          *assetStore
+	content        contentResolver
+	textOverrides  map[string]string
+	logger         *slog.Logger
+	voiceVersion   string
+	modelRevision  string
+	profileVersion string
+	requestTimeout time.Duration
+	maxAudioBytes  int64
+	synthesisSlots chan struct{}
+	flightMu       sync.Mutex
+	flights        map[string]struct{}
 }
 
-func newAudioService(cfg config, client *irodoriClient) (*audioService, error) {
-	if err := os.MkdirAll(cfg.cacheDir, 0o755); err != nil {
-		return nil, fmt.Errorf("create cache directory: %w", err)
-	}
+func newAudioService(cfg config, store *assetStore, content contentResolver, client synthesisClient, textOverrides map[string]string, logger *slog.Logger) *audioService {
 	return &audioService{
-		client:           client,
-		cacheDir:         cfg.cacheDir,
-		modelRevision:    cfg.modelRevision,
-		voiceVersion:     cfg.voiceVersion,
-		profileVersion:   cfg.profileVersion,
-		requestTimeout:   cfg.requestTimeout,
-		synthesisSlots:   make(chan struct{}, cfg.maxConcurrentSynthesis),
-		inflightRequests: make(map[string]*inflightCall),
-	}, nil
+		client:         client,
+		store:          store,
+		content:        content,
+		textOverrides:  textOverrides,
+		logger:         logger,
+		voiceVersion:   cfg.voiceVersion,
+		modelRevision:  cfg.modelRevision,
+		profileVersion: cfg.profileVersion,
+		requestTimeout: cfg.requestTimeout,
+		maxAudioBytes:  cfg.maxAudioBytes,
+		synthesisSlots: make(chan struct{}, cfg.maxConcurrentSynthesis),
+		flights:        make(map[string]struct{}),
+	}
 }
 
-func (s *audioService) getAudio(ctx context.Context, request synthesisRequest) (audioResult, error) {
+// queueMissingAudio resolves canonical text from the same content DB as the App,
+// deduplicates concurrent misses, and generates in the background. The caller
+// still returns 404 immediately; a later request will serve the ready asset.
+func (s *audioService) queueMissingAudio(ctx context.Context, entryID, voice, format string, speed float64) (bool, error) {
+	if s.content == nil {
+		return false, errContentNotFound
+	}
+	text, err := s.content.lookupText(ctx, entryID)
+	if err != nil {
+		return false, err
+	}
+	if override, ok := s.textOverrides[entryID]; ok {
+		text = override
+	}
+	identity := s.identity(entryID, voice, format, speed)
+	flightKey := fmt.Sprintf("%s\x00%s\x00%s\x00%d\x00%s\x00%s\x00%s",
+		identity.entryID, identity.voice, identity.format, identity.speedMilli,
+		identity.voiceVersion, identity.modelRevision, identity.profileVersion)
+
+	s.flightMu.Lock()
+	if _, exists := s.flights[flightKey]; exists {
+		s.flightMu.Unlock()
+		return false, nil
+	}
+	s.flights[flightKey] = struct{}{}
+	s.flightMu.Unlock()
+
+	go func() {
+		generationContext, cancel := context.WithTimeout(context.Background(), s.requestTimeout)
+		defer cancel()
+		defer func() {
+			s.flightMu.Lock()
+			delete(s.flights, flightKey)
+			s.flightMu.Unlock()
+		}()
+
+		result, generationErr := s.prewarm(generationContext, synthesisRequest{
+			entryID: entryID,
+			text:    text,
+			voice:   voice,
+			format:  format,
+			speed:   speed,
+		}, false)
+		if generationErr != nil {
+			if s.logger != nil {
+				s.logger.Error("background audio generation failed", "entry_id", entryID, "error", generationErr)
+			}
+			return
+		}
+		if s.logger != nil {
+			s.logger.Info("background audio ready", "entry_id", entryID, "bytes", result.asset.sizeBytes, "skipped", result.skipped)
+		}
+	}()
+	return true, nil
+}
+
+func (s *audioService) importAudio(ctx context.Context, request synthesisRequest, audio []byte, force bool) (prewarmResult, error) {
+	if len(audio) == 0 || int64(len(audio)) > s.maxAudioBytes {
+		return prewarmResult{}, fmt.Errorf("audio file must contain 1 to %d bytes", s.maxAudioBytes)
+	}
 	request.text = normalizeText(request.text)
 	request.seed = deterministicSeed(request.entryID, s.voiceVersion, s.profileVersion)
-	cacheKey, err := s.cacheKey(request)
-	if err != nil {
-		return audioResult{}, err
-	}
+	identity := s.identity(request.entryID, request.voice, request.format, request.speed)
+	textHash := sha256Hex([]byte(request.text))
 
-	if audio, err := os.ReadFile(s.cachePath(cacheKey, request.format)); err == nil {
-		return audioResult{data: audio, cacheKey: cacheKey, cacheHit: true, format: request.format}, nil
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return audioResult{}, fmt.Errorf("read audio cache: %w", err)
-	}
-
-	call, leader := s.joinInflight(cacheKey)
-	if !leader {
-		select {
-		case <-ctx.Done():
-			return audioResult{}, ctx.Err()
-		case <-call.done:
-			result := call.result
-			result.cacheHit = true
-			return result, call.err
+	if !force {
+		if existing, err := s.store.lookupReady(ctx, identity); err == nil {
+			path, pathErr := s.store.assetPath(existing.objectKey)
+			if pathErr == nil && existing.textHash == textHash {
+				if info, statErr := os.Stat(path); statErr == nil && info.Mode().IsRegular() && info.Size() == existing.sizeBytes {
+					return prewarmResult{asset: existing, skipped: true}, nil
+				}
+			}
+		} else if err != nil && err != errAudioNotFound {
+			return prewarmResult{}, err
 		}
 	}
 
-	result, err := s.generateAndCache(request, cacheKey)
-	s.finishInflight(cacheKey, call, result, err)
-	return result, err
+	objectKey, err := audioObjectKey(request.entryID, request.format)
+	if err != nil {
+		return prewarmResult{}, err
+	}
+	if err := s.store.markGenerating(ctx, identity, request.text, textHash); err != nil {
+		return prewarmResult{}, err
+	}
+	path, err := s.store.assetPath(objectKey)
+	if err != nil {
+		s.recordFailure(identity, err)
+		return prewarmResult{}, err
+	}
+	if err := writeFileAtomic(path, audio); err != nil {
+		err = fmt.Errorf("write imported audio object: %w", err)
+		s.recordFailure(identity, err)
+		return prewarmResult{}, err
+	}
+	if err := s.store.markReady(ctx, identity, objectKey, sha256Hex(audio), int64(len(audio))); err != nil {
+		return prewarmResult{}, err
+	}
+	asset, err := s.store.lookupReady(ctx, identity)
+	if err != nil {
+		return prewarmResult{}, err
+	}
+	return prewarmResult{asset: asset}, nil
 }
 
-func (s *audioService) generateAndCache(request synthesisRequest, cacheKey string) (audioResult, error) {
+func (s *audioService) profileID() string {
+	return s.modelRevision + ":" + s.voiceVersion + ":" + s.profileVersion
+}
+
+func (s *audioService) identity(entryID, voice, format string, speed float64) audioIdentity {
+	return audioIdentity{
+		entryID:        entryID,
+		voice:          voice,
+		format:         format,
+		speedMilli:     int(speed*1000 + 0.5),
+		voiceVersion:   s.voiceVersion,
+		modelRevision:  s.modelRevision,
+		profileVersion: s.profileVersion,
+	}
+}
+
+func (s *audioService) readyAsset(ctx context.Context, entryID, voice, format string, speed float64) (audioAsset, error) {
+	identity := s.identity(entryID, voice, format, speed)
+	asset, err := s.store.lookupReady(ctx, identity)
+	if err != nil {
+		return audioAsset{}, err
+	}
+	path, err := s.store.assetPath(asset.objectKey)
+	if err != nil {
+		s.invalidateAsset(ctx, identity, "invalid audio object key")
+		return audioAsset{}, errAudioNotFound
+	}
+	info, err := os.Stat(path)
+	if err != nil || !info.Mode().IsRegular() || info.Size() != asset.sizeBytes {
+		reason := "indexed audio file is missing or invalid"
+		if err != nil {
+			reason += ": " + err.Error()
+		}
+		s.invalidateAsset(ctx, identity, reason)
+		return audioAsset{}, errAudioNotFound
+	}
+	return asset, nil
+}
+
+func (s *audioService) invalidateAsset(ctx context.Context, identity audioIdentity, reason string) {
+	if err := s.store.markFailed(ctx, identity, reason); err != nil && s.logger != nil {
+		s.logger.Error("invalidate audio asset", "entry_id", identity.entryID, "error", err)
+	}
+}
+
+func (s *audioService) prewarm(ctx context.Context, request synthesisRequest, force bool) (prewarmResult, error) {
+	request.text = normalizeText(request.text)
+	request.seed = deterministicSeed(request.entryID, s.voiceVersion, s.profileVersion)
+	identity := s.identity(request.entryID, request.voice, request.format, request.speed)
+	textHash := sha256Hex([]byte(request.text))
+
+	if !force {
+		if existing, err := s.store.lookupReady(ctx, identity); err == nil {
+			path, pathErr := s.store.assetPath(existing.objectKey)
+			if pathErr == nil && existing.textHash == textHash {
+				if info, statErr := os.Stat(path); statErr == nil && info.Mode().IsRegular() && info.Size() == existing.sizeBytes {
+					return prewarmResult{asset: existing, skipped: true}, nil
+				}
+			}
+		} else if err != nil && err != errAudioNotFound {
+			return prewarmResult{}, err
+		}
+	}
+
+	objectKey, err := audioObjectKey(request.entryID, request.format)
+	if err != nil {
+		return prewarmResult{}, err
+	}
+	if err := s.store.markGenerating(ctx, identity, request.text, textHash); err != nil {
+		return prewarmResult{}, err
+	}
+
 	select {
 	case s.synthesisSlots <- struct{}{}:
 		defer func() { <-s.synthesisSlots }()
-	default:
-		return audioResult{}, errSynthesisQueueFull
+	case <-ctx.Done():
+		return prewarmResult{}, ctx.Err()
 	}
 
-	generationContext, cancel := context.WithTimeout(context.Background(), s.requestTimeout)
+	generationContext, cancel := context.WithTimeout(ctx, s.requestTimeout)
 	defer cancel()
 	audio, err := s.client.synthesize(generationContext, request)
 	if err != nil {
-		return audioResult{}, err
+		s.recordFailure(identity, err)
+		return prewarmResult{}, err
 	}
-	if err := writeFileAtomic(s.cachePath(cacheKey, request.format), audio); err != nil {
-		return audioResult{}, fmt.Errorf("write audio cache: %w", err)
-	}
-	return audioResult{data: audio, cacheKey: cacheKey, cacheHit: false, format: request.format}, nil
-}
 
-func (s *audioService) joinInflight(cacheKey string) (*inflightCall, bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if call, ok := s.inflightRequests[cacheKey]; ok {
-		return call, false
-	}
-	call := &inflightCall{done: make(chan struct{})}
-	s.inflightRequests[cacheKey] = call
-	return call, true
-}
-
-func (s *audioService) finishInflight(cacheKey string, call *inflightCall, result audioResult, err error) {
-	s.mu.Lock()
-	call.result = result
-	call.err = err
-	delete(s.inflightRequests, cacheKey)
-	close(call.done)
-	s.mu.Unlock()
-}
-
-func (s *audioService) cacheKey(request synthesisRequest) (string, error) {
-	payload := struct {
-		Text           string  `json:"text"`
-		EntryID        string  `json:"entry_id"`
-		Voice          string  `json:"voice"`
-		VoiceVersion   string  `json:"voice_version"`
-		ModelRevision  string  `json:"model_revision"`
-		ProfileVersion string  `json:"profile_version"`
-		Format         string  `json:"format"`
-		Speed          float64 `json:"speed"`
-		Seed           uint32  `json:"seed"`
-	}{
-		Text:           request.text,
-		EntryID:        request.entryID,
-		Voice:          request.voice,
-		VoiceVersion:   s.voiceVersion,
-		ModelRevision:  s.modelRevision,
-		ProfileVersion: s.profileVersion,
-		Format:         request.format,
-		Speed:          request.speed,
-		Seed:           request.seed,
-	}
-	encoded, err := json.Marshal(payload)
+	path, err := s.store.assetPath(objectKey)
 	if err != nil {
-		return "", fmt.Errorf("encode cache key: %w", err)
+		s.recordFailure(identity, err)
+		return prewarmResult{}, err
 	}
-	digest := sha256.Sum256(encoded)
-	return hex.EncodeToString(digest[:]), nil
+	if err := writeFileAtomic(path, audio); err != nil {
+		err = fmt.Errorf("write audio object: %w", err)
+		s.recordFailure(identity, err)
+		return prewarmResult{}, err
+	}
+
+	etag := sha256Hex(audio)
+	if err := s.store.markReady(ctx, identity, objectKey, etag, int64(len(audio))); err != nil {
+		return prewarmResult{}, err
+	}
+	asset, err := s.store.lookupReady(ctx, identity)
+	if err != nil {
+		return prewarmResult{}, err
+	}
+	return prewarmResult{asset: asset}, nil
 }
 
-func (s *audioService) cachePath(cacheKey, format string) string {
-	return filepath.Join(s.cacheDir, cacheKey[:2], cacheKey+"."+format)
+func (s *audioService) recordFailure(identity audioIdentity, generationErr error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_ = s.store.markFailed(ctx, identity, generationErr.Error())
 }
 
 func normalizeText(value string) string {
@@ -187,6 +301,11 @@ func deterministicSeed(entryID, voiceVersion, profileVersion string) uint32 {
 		return 1
 	}
 	return seed
+}
+
+func sha256Hex(data []byte) string {
+	digest := sha256.Sum256(data)
+	return hex.EncodeToString(digest[:])
 }
 
 func writeFileAtomic(path string, data []byte) error {
