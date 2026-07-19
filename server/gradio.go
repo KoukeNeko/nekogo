@@ -16,13 +16,17 @@ import (
 )
 
 type gradioClient struct {
-	baseURL      string
-	checkpoint   string
-	numSteps     int
-	ffmpegPath   string
-	maxAudioSize int64
-	httpClient   *http.Client
-	transcode    func(context.Context, []byte, string) ([]byte, error)
+	baseURL        string
+	checkpoint     string
+	modelDevice    string
+	modelPrecision string
+	codecDevice    string
+	codecPrecision string
+	numSteps       int
+	ffmpegPath     string
+	maxAudioSize   int64
+	httpClient     *http.Client
+	transcode      func(context.Context, []byte, string) ([]byte, error)
 }
 
 type gradioQueuedResponse struct {
@@ -36,30 +40,7 @@ type gradioFileOutput struct {
 }
 
 func (c *gradioClient) synthesize(ctx context.Context, request synthesisRequest) ([]byte, error) {
-	payload := map[string]any{"data": []any{
-		c.checkpoint,
-		"cuda", "fp32",
-		"cuda", "fp32",
-		request.text,
-		nil, nil, "",
-		c.numSteps,
-		1,
-		fmt.Sprintf("%d", request.seed),
-		"",
-		1,
-		"linear",
-		-1,
-		"independent",
-		3.0,
-		5.0,
-		"",
-		0.5,
-		1,
-		true,
-		"", "", "", "",
-		0.9,
-		"", "",
-	}}
+	payload := map[string]any{"data": c.generationParameters(request)}
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return nil, fmt.Errorf("encode Gradio request: %w", err)
@@ -113,6 +94,33 @@ func (c *gradioClient) synthesize(ctx context.Context, request synthesisRequest)
 		return c.transcode(ctx, wav, request.format)
 	}
 	return c.transcodeWAV(ctx, wav, request.format)
+}
+
+func (c *gradioClient) generationParameters(request synthesisRequest) []any {
+	return []any{
+		c.checkpoint,
+		c.modelDevice, c.modelPrecision,
+		c.codecDevice, c.codecPrecision,
+		request.text,
+		nil, nil, "",
+		c.numSteps,
+		1,
+		fmt.Sprintf("%d", request.seed),
+		"",
+		1,
+		"linear",
+		-1,
+		"independent",
+		3.0,
+		5.0,
+		"",
+		0.5,
+		1,
+		true,
+		"", "", "", "",
+		0.9,
+		"", "",
+	}
 }
 
 func readGradioAudioURL(reader io.Reader) (string, error) {

@@ -46,8 +46,8 @@ type audioService struct {
 	requestTimeout time.Duration
 	maxAudioBytes  int64
 	synthesisSlots chan struct{}
-	flightMu       sync.Mutex
-	flights        map[string]struct{}
+	scheduler      *audioScheduler
+	legacyOnce     sync.Once
 }
 
 type audioManifestSummary struct {
@@ -72,13 +72,11 @@ func newAudioService(cfg config, store *assetStore, content contentResolver, cli
 		requestTimeout: cfg.requestTimeout,
 		maxAudioBytes:  cfg.maxAudioBytes,
 		synthesisSlots: make(chan struct{}, cfg.maxConcurrentSynthesis),
-		flights:        make(map[string]struct{}),
 	}
 }
 
-// queueMissingAudio resolves canonical text from the same content DB as the App,
-// deduplicates concurrent misses, and generates in the background. The caller
-// still returns 404 immediately; a later request will serve the ready asset.
+// queueMissingAudio resolves canonical text and durably enqueues it. The caller
+// still returns 404 immediately; a scheduler worker publishes the later asset.
 func (s *audioService) queueMissingAudio(ctx context.Context, entryID, voice, format string, speed float64) (bool, error) {
 	if s.content == nil {
 		return false, errContentNotFound
@@ -90,46 +88,46 @@ func (s *audioService) queueMissingAudio(ctx context.Context, entryID, voice, fo
 	if override, ok := s.textOverrides[entryID]; ok {
 		text = override
 	}
-	identity := s.identity(entryID, voice, format, speed)
-	flightKey := fmt.Sprintf("%s\x00%s\x00%s\x00%d\x00%s\x00%s\x00%s",
-		identity.entryID, identity.voice, identity.format, identity.speedMilli,
-		identity.voiceVersion, identity.modelRevision, identity.profileVersion)
-
-	s.flightMu.Lock()
-	if _, exists := s.flights[flightKey]; exists {
-		s.flightMu.Unlock()
-		return false, nil
+	result, err := s.enqueueAudio(ctx, synthesisRequest{
+		entryID: entryID, text: text, voice: voice, format: format, speed: speed,
+	}, 10, false)
+	if err != nil {
+		return false, err
 	}
-	s.flights[flightKey] = struct{}{}
-	s.flightMu.Unlock()
+	// Keep direct service construction useful in tests and compatibility tools.
+	// The serve path binds its explicitly configured scheduler before requests.
+	if s.scheduler == nil && s.client != nil {
+		s.legacyOnce.Do(func() {
+			legacy := newAudioScheduler(s, []synthesisBackend{{name: "primary", client: s.client}}, s.logger)
+			workerContext, cancel := context.WithTimeout(context.Background(), s.requestTimeout+time.Minute)
+			legacy.start(workerContext)
+			go func() {
+				legacy.waitForStop()
+				cancel()
+			}()
+		})
+	}
+	if s.scheduler != nil {
+		s.scheduler.notify()
+	}
+	return result.disposition == enqueueQueued, nil
+}
 
-	go func() {
-		generationContext, cancel := context.WithTimeout(context.Background(), s.requestTimeout)
-		defer cancel()
-		defer func() {
-			s.flightMu.Lock()
-			delete(s.flights, flightKey)
-			s.flightMu.Unlock()
-		}()
-
-		result, generationErr := s.prewarm(generationContext, synthesisRequest{
-			entryID: entryID,
-			text:    text,
-			voice:   voice,
-			format:  format,
-			speed:   speed,
-		}, false)
-		if generationErr != nil {
-			if s.logger != nil {
-				s.logger.Error("background audio generation failed", "entry_id", entryID, "error", generationErr)
-			}
-			return
-		}
-		if s.logger != nil {
-			s.logger.Info("background audio ready", "entry_id", entryID, "bytes", result.asset.sizeBytes, "skipped", result.skipped)
-		}
-	}()
-	return true, nil
+func (s *audioService) enqueueAudio(ctx context.Context, request synthesisRequest, priority int64, force bool) (enqueueResult, error) {
+	request.text = normalizeText(request.text)
+	identity := s.identity(request.entryID, request.voice, request.format, request.speed)
+	kind, _, ok := strings.Cut(request.entryID, ":")
+	if !ok || (kind != "vocab" && kind != "example") {
+		return enqueueResult{}, fmt.Errorf("invalid synthesis entry identity")
+	}
+	result, err := s.store.enqueueSynthesis(
+		ctx, identity, request.text, sha256Hex([]byte(request.text)), kind,
+		len([]rune(request.text)), priority, force,
+	)
+	if err == nil && s.scheduler != nil {
+		s.scheduler.notify()
+	}
+	return result, err
 }
 
 func (s *audioService) importAudio(ctx context.Context, request synthesisRequest, audio []byte, force bool) (prewarmResult, error) {
@@ -143,11 +141,8 @@ func (s *audioService) importAudio(ctx context.Context, request synthesisRequest
 
 	if !force {
 		if existing, err := s.store.lookupReady(ctx, identity); err == nil {
-			path, pathErr := s.store.assetPath(existing.objectKey)
-			if pathErr == nil && existing.textHash == textHash {
-				if info, statErr := os.Stat(path); statErr == nil && info.Mode().IsRegular() && info.Size() == existing.sizeBytes {
-					return prewarmResult{asset: existing, skipped: true}, nil
-				}
+			if existing.textHash == textHash && s.store.validateReadyFile(existing) == nil {
+				return prewarmResult{asset: existing, skipped: true}, nil
 			}
 		} else if err != nil && err != errAudioNotFound {
 			return prewarmResult{}, err
@@ -203,17 +198,8 @@ func (s *audioService) readyAsset(ctx context.Context, entryID, voice, format st
 	if err != nil {
 		return audioAsset{}, err
 	}
-	path, err := s.store.assetPath(asset.objectKey)
-	if err != nil {
-		s.invalidateAsset(ctx, identity, "invalid audio object key")
-		return audioAsset{}, errAudioNotFound
-	}
-	info, err := os.Stat(path)
-	if err != nil || !info.Mode().IsRegular() || info.Size() != asset.sizeBytes {
-		reason := "indexed audio file is missing or invalid"
-		if err != nil {
-			reason += ": " + err.Error()
-		}
+	if err := s.store.validateReadyFile(asset); err != nil {
+		reason := "indexed audio file is missing or invalid: " + err.Error()
 		s.invalidateAsset(ctx, identity, reason)
 		return audioAsset{}, errAudioNotFound
 	}
@@ -221,7 +207,31 @@ func (s *audioService) readyAsset(ctx context.Context, entryID, voice, format st
 }
 
 func (s *audioService) deleteAudio(ctx context.Context, entryID, voice, format string, speed float64) (bool, error) {
-	return s.store.deleteAsset(ctx, s.identity(entryID, voice, format, speed))
+	identity := s.identity(entryID, voice, format, speed)
+	if s.scheduler != nil {
+		s.scheduler.cancel(identity)
+	}
+	canceled, err := s.store.cancelSynthesis(ctx, identity)
+	if err != nil {
+		return false, err
+	}
+	deleted, err := s.store.deleteAsset(ctx, identity)
+	return canceled || deleted, err
+}
+
+func (s *audioService) synthesisProgress(ctx context.Context, voice, format string, speed float64) (synthesisProgress, int64, error) {
+	progress, err := s.store.synthesisProgress(ctx, s.identity("", voice, format, speed))
+	if err != nil {
+		return synthesisProgress{}, 0, err
+	}
+	var expected int64
+	if s.content != nil {
+		expected, err = s.content.countEntries(ctx)
+		if err != nil {
+			return synthesisProgress{}, 0, err
+		}
+	}
+	return progress, expected, nil
 }
 
 func (s *audioService) prepareManifest(ctx context.Context, voice, format string, speed float64) (audioManifestSummary, error) {
@@ -233,13 +243,7 @@ func (s *audioService) prepareManifest(ctx context.Context, voice, format string
 	var assets []audioAsset
 	var totalBytes int64
 	err := s.store.forEachReady(ctx, profile, func(asset audioAsset) error {
-		assetPath, pathErr := s.store.assetPath(asset.objectKey)
-		if pathErr != nil {
-			invalid = append(invalid, asset.identity)
-			return nil
-		}
-		info, statErr := os.Stat(assetPath)
-		if statErr != nil || !info.Mode().IsRegular() || info.Size() != asset.sizeBytes {
+		if validationErr := s.store.validateReadyFile(asset); validationErr != nil {
 			invalid = append(invalid, asset.identity)
 			return nil
 		}
@@ -282,11 +286,8 @@ func (s *audioService) prewarm(ctx context.Context, request synthesisRequest, fo
 
 	if !force {
 		if existing, err := s.store.lookupReady(ctx, identity); err == nil {
-			path, pathErr := s.store.assetPath(existing.objectKey)
-			if pathErr == nil && existing.textHash == textHash {
-				if info, statErr := os.Stat(path); statErr == nil && info.Mode().IsRegular() && info.Size() == existing.sizeBytes {
-					return prewarmResult{asset: existing, skipped: true}, nil
-				}
+			if existing.textHash == textHash && s.store.validateReadyFile(existing) == nil {
+				return prewarmResult{asset: existing, skipped: true}, nil
 			}
 		} else if err != nil && err != errAudioNotFound {
 			return prewarmResult{}, err

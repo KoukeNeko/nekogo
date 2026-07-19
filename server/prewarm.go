@@ -13,12 +13,13 @@ import (
 )
 
 type manifestEntry struct {
-	EntryID string  `json:"entry_id"`
-	Text    string  `json:"text"`
-	File    string  `json:"file,omitempty"`
-	Voice   string  `json:"voice,omitempty"`
-	Format  string  `json:"format,omitempty"`
-	Speed   float64 `json:"speed,omitempty"`
+	EntryID  string  `json:"entry_id"`
+	Text     string  `json:"text"`
+	File     string  `json:"file,omitempty"`
+	Voice    string  `json:"voice,omitempty"`
+	Format   string  `json:"format,omitempty"`
+	Speed    float64 `json:"speed,omitempty"`
+	Priority *int64  `json:"priority,omitempty"`
 }
 
 func runPrewarm(ctx context.Context, args []string, cfg config, service *audioService, overrides map[string]string, logger *slog.Logger) error {
@@ -41,9 +42,11 @@ func runPrewarm(ctx context.Context, args []string, cfg config, service *audioSe
 	scanner := bufio.NewScanner(reader)
 	scanner.Buffer(make([]byte, 64*1024), 1024*1024)
 	lineNumber := 0
-	generated := 0
-	skipped := 0
+	ready := 0
+	queued := 0
+	alreadyQueued := 0
 	failed := 0
+	processed := 0
 	for scanner.Scan() {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -81,31 +84,42 @@ func runPrewarm(ctx context.Context, args []string, cfg config, service *audioSe
 			logger.Error("invalid manifest entry", "line", lineNumber, "entry_id", entry.EntryID, "error", err)
 			continue
 		}
-
-		result, err := service.prewarm(ctx, synthesisRequest{
+		priority := int64(100000 + lineNumber)
+		if entry.Priority != nil {
+			priority = *entry.Priority
+		}
+		result, err := service.enqueueAudio(ctx, synthesisRequest{
 			entryID: entry.EntryID,
 			text:    entry.Text,
 			voice:   entry.Voice,
 			format:  entry.Format,
 			speed:   entry.Speed,
-		}, *force)
+		}, priority, *force)
 		if err != nil {
 			failed++
 			logger.Error("pre-generate audio", "line", lineNumber, "entry_id", entry.EntryID, "error", err)
 			continue
 		}
-		if result.skipped {
-			skipped++
+		switch result.disposition {
+		case enqueueReady:
+			ready++
 			logger.Info("audio already ready", "entry_id", entry.EntryID)
-		} else {
-			generated++
-			logger.Info("audio generated", "entry_id", entry.EntryID, "bytes", result.asset.sizeBytes)
+		case enqueueAlreadyQueued:
+			alreadyQueued++
+		case enqueueQueued:
+			queued++
+		}
+		processed++
+		if processed%100 == 0 {
+			logger.Info("prewarm enqueue progress", "processed", processed, "ready", ready,
+				"queued", queued, "already_queued", alreadyQueued, "invalid", failed)
 		}
 	}
 	if err := scanner.Err(); err != nil {
 		return fmt.Errorf("read manifest: %w", err)
 	}
-	logger.Info("prewarm complete", "generated", generated, "skipped", skipped, "failed", failed)
+	logger.Info("prewarm enqueue complete", "processed", processed, "ready", ready,
+		"queued", queued, "already_queued", alreadyQueued, "invalid", failed)
 	if failed > 0 {
 		return fmt.Errorf("prewarm finished with %d failed entries", failed)
 	}
@@ -128,6 +142,9 @@ func validateManifestEntry(entry manifestEntry, approvedVoices map[string]struct
 	}
 	if entry.Speed < 0.8 || entry.Speed > 1.2 {
 		return fmt.Errorf("speed must be between 0.8 and 1.2")
+	}
+	if entry.Priority != nil && *entry.Priority < 0 {
+		return fmt.Errorf("priority cannot be negative")
 	}
 	return nil
 }

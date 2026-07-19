@@ -41,7 +41,7 @@ func run(args []string) int {
 	defer store.close()
 
 	var content contentResolver
-	if command == "serve" {
+	if command == "serve" || command == "status" {
 		contentStore, contentErr := newContentStore(cfg.contentDatabasePath)
 		if contentErr != nil {
 			logger.Error("initialize content database", "error", contentErr)
@@ -51,35 +51,31 @@ func run(args []string) int {
 		content = contentStore
 	}
 
-	httpClient := &http.Client{Timeout: cfg.requestTimeout}
-	var client synthesisClient
-	if cfg.irodoriAPIMode == "gradio" {
-		client = &gradioClient{
-			baseURL:      cfg.irodoriBaseURL,
-			checkpoint:   cfg.irodoriCheckpoint,
-			numSteps:     cfg.numSteps,
-			ffmpegPath:   cfg.ffmpegPath,
-			maxAudioSize: cfg.maxAudioBytes,
-			httpClient:   httpClient,
+	var backends []synthesisBackend
+	var primaryClient synthesisClient
+	if command == "serve" {
+		httpClient := &http.Client{Timeout: cfg.requestTimeout}
+		backends, err = configuredSynthesisBackends(cfg, httpClient)
+		if err != nil {
+			logger.Error("configure synthesis backends", "error", err)
+			return 1
 		}
-	} else {
-		client = &irodoriClient{
-			baseURL:      cfg.irodoriBaseURL,
-			apiKey:       cfg.irodoriAPIKey,
-			modelName:    cfg.modelName,
-			numSteps:     cfg.numSteps,
-			maxAudioSize: cfg.maxAudioBytes,
-			httpClient:   httpClient,
-		}
+		primaryClient = backends[0].client
 	}
-	service := newAudioService(cfg, store, content, client, textOverrides, logger)
+	service := newAudioService(cfg, store, content, primaryClient, textOverrides, logger)
 
 	shutdownContext, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	switch command {
 	case "serve":
-		if err := runHTTPServer(shutdownContext, cfg, service, logger); err != nil {
-			logger.Error("server stopped unexpectedly", "error", err)
+		serveContext, cancelServe := context.WithCancel(shutdownContext)
+		scheduler := newAudioScheduler(service, backends, logger)
+		scheduler.start(serveContext)
+		serverErr := runHTTPServer(serveContext, cfg, service, logger)
+		cancelServe()
+		scheduler.waitForStop()
+		if serverErr != nil {
+			logger.Error("server stopped unexpectedly", "error", serverErr)
 			return 1
 		}
 	case "prewarm":
@@ -90,16 +86,77 @@ func run(args []string) int {
 			logger.Error("prewarm failed", "error", err)
 			return 1
 		}
+	case "status":
+		if err := runStatus(shutdownContext, commandArgs, cfg, service, os.Stdout); err != nil {
+			logger.Error("status failed", "error", err)
+			return 1
+		}
 	case "import":
 		if err := runImport(shutdownContext, commandArgs, cfg, service, textOverrides, logger); err != nil {
 			logger.Error("import failed", "error", err)
 			return 1
 		}
 	default:
-		logger.Error("unknown command", "command", command, "valid", "serve|prewarm|import")
+		logger.Error("unknown command", "command", command, "valid", "serve|prewarm|status|import")
 		return 2
 	}
 	return 0
+}
+
+func configuredSynthesisBackends(cfg config, httpClient *http.Client) ([]synthesisBackend, error) {
+	switch cfg.irodoriAPIMode {
+	case "gradio":
+		backends := []synthesisBackend{{
+			name: "gpu",
+			client: &gradioClient{
+				baseURL:        cfg.irodoriGPUBaseURL,
+				checkpoint:     cfg.irodoriCheckpoint,
+				modelDevice:    cfg.irodoriGPUModelDevice,
+				modelPrecision: cfg.irodoriGPUModelPrecision,
+				codecDevice:    cfg.irodoriGPUCodecDevice,
+				codecPrecision: cfg.irodoriGPUCodecPrecision,
+				numSteps:       cfg.numSteps,
+				ffmpegPath:     cfg.ffmpegPath,
+				maxAudioSize:   cfg.maxAudioBytes,
+				httpClient:     httpClient,
+			},
+			maxTextRunes: 0,
+		}}
+		if cfg.irodoriCPUEnabled {
+			backends = append(backends, synthesisBackend{
+				name: "cpu",
+				client: &gradioClient{
+					baseURL:        cfg.irodoriCPUBaseURL,
+					checkpoint:     cfg.irodoriCheckpoint,
+					modelDevice:    cfg.irodoriCPUModelDevice,
+					modelPrecision: cfg.irodoriCPUModelPrecision,
+					codecDevice:    cfg.irodoriCPUCodecDevice,
+					codecPrecision: cfg.irodoriCPUCodecPrecision,
+					numSteps:       cfg.numSteps,
+					ffmpegPath:     cfg.ffmpegPath,
+					maxAudioSize:   cfg.maxAudioBytes,
+					httpClient:     httpClient,
+				},
+				maxTextRunes: cfg.cpuMaxTextRunes,
+			})
+		}
+		return backends, nil
+	case "openai":
+		return []synthesisBackend{{
+			name: "primary",
+			client: &irodoriClient{
+				baseURL:      cfg.irodoriBaseURL,
+				apiKey:       cfg.irodoriAPIKey,
+				modelName:    cfg.modelName,
+				numSteps:     cfg.numSteps,
+				maxAudioSize: cfg.maxAudioBytes,
+				httpClient:   httpClient,
+			},
+			maxTextRunes: 0,
+		}}, nil
+	default:
+		return nil, errors.New("IRODORI_API_MODE must be gradio or openai")
+	}
 }
 
 func runHTTPServer(shutdownContext context.Context, cfg config, service *audioService, logger *slog.Logger) error {

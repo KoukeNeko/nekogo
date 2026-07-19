@@ -52,10 +52,54 @@ func (a *apiServer) routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", a.handleHealth)
 	mux.HandleFunc("GET /api/v1/dictionary-audio/manifest.ndjson", a.handleDictionaryAudioManifest)
+	mux.HandleFunc("GET /api/v1/dictionary-audio/status", a.handleDictionaryAudioStatus)
 	mux.HandleFunc("GET /api/v1/dictionary-audio/{kind}/{id}", a.handleDictionaryAudio)
 	mux.HandleFunc("HEAD /api/v1/dictionary-audio/{kind}/{id}", a.handleDictionaryAudio)
 	mux.HandleFunc("DELETE /api/v1/dictionary-audio/{kind}/{id}", a.handleDeleteDictionaryAudio)
 	return a.logRequests(mux)
+}
+
+func (a *apiServer) handleDictionaryAudioStatus(response http.ResponseWriter, request *http.Request) {
+	if !a.authorized(request) {
+		writeAPIError(response, http.StatusUnauthorized, "unauthorized", "Authentication is required.")
+		return
+	}
+	progress, expected, err := a.service.synthesisProgress(
+		request.Context(), a.defaultVoice, a.defaultFormat, a.defaultSpeed,
+	)
+	if err != nil {
+		a.logger.Error("query dictionary audio status", "error", err)
+		writeAPIError(response, http.StatusServiceUnavailable, "status_unavailable", "Audio generation status is temporarily unavailable.")
+		return
+	}
+	completed := map[string]int64{"gpu": 0, "cpu": 0}
+	for _, backend := range progress.backends {
+		completed[backend.backend] = backend.completed
+	}
+	state := "idle"
+	if progress.running > 0 {
+		state = "running"
+	} else if progress.queued > 0 {
+		state = "queued"
+	} else if progress.failed > 0 {
+		state = "failed"
+	} else if expected > 0 && progress.ready >= expected {
+		state = "complete"
+	}
+	writeJSON(response, http.StatusOK, map[string]any{
+		"schema_version": 1,
+		"state":          state,
+		"profile_id":     a.service.profileID(),
+		"format":         a.defaultFormat,
+		"expected_count": expected,
+		"ready_count":    progress.ready,
+		"total_bytes":    progress.totalBytes,
+		"queued_count":   progress.queued,
+		"running_count":  progress.running,
+		"failed_count":   progress.failed,
+		"gpu_completed":  completed["gpu"],
+		"cpu_completed":  completed["cpu"],
+	})
 }
 
 func (a *apiServer) handleDictionaryAudioManifest(response http.ResponseWriter, request *http.Request) {
