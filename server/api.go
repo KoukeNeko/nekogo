@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"math"
 	"net"
 	"net/http"
 	"os"
@@ -44,6 +45,7 @@ type apiServer struct {
 	defaultVoice  string
 	defaultFormat string
 	defaultSpeed  float64
+	backends      []synthesisBackend
 	logger        *slog.Logger
 	rateLimiter   *fixedWindowLimiter
 }
@@ -72,9 +74,60 @@ func (a *apiServer) handleDictionaryAudioStatus(response http.ResponseWriter, re
 		writeAPIError(response, http.StatusServiceUnavailable, "status_unavailable", "Audio generation status is temporarily unavailable.")
 		return
 	}
-	completed := map[string]int64{"gpu": 0, "cpu": 0}
+	progressByID := make(map[string]backendProgress, len(progress.backends))
 	for _, backend := range progress.backends {
-		completed[backend.backend] = backend.completed
+		progressByID[backend.backend] = backend
+	}
+	workers := make([]map[string]any, 0, len(a.backends))
+	seen := make(map[string]struct{})
+	var gpuCompleted, cpuCompleted int64
+	var perMinute float64
+	appendWorker := func(id, displayName, kind string, maxTextRunes int) {
+		backend := progressByID[id]
+		workerRate := 0.0
+		averageSeconds := 0.0
+		if backend.completed > 0 && backend.totalDuration > 0 {
+			workerRate = float64(backend.completed) / backend.totalDuration.Minutes()
+			averageSeconds = backend.totalDuration.Seconds() / float64(backend.completed)
+		}
+		workerState := "idle"
+		if backend.running > 0 {
+			workerState = "running"
+		}
+		workers = append(workers, map[string]any{
+			"id":                       id,
+			"name":                     displayName,
+			"kind":                     kind,
+			"state":                    workerState,
+			"max_text_runes":           maxTextRunes,
+			"running_count":            backend.running,
+			"current_entry_id":         backend.activeEntryID,
+			"completed_count":          backend.completed,
+			"failed_count":             backend.failed,
+			"current_failed_count":     backend.terminalJobs,
+			"average_duration_seconds": averageSeconds,
+			"throughput_per_minute":    workerRate,
+			"last_error":               backend.lastError,
+		})
+		if kind == "gpu" {
+			gpuCompleted += backend.completed
+		} else if kind == "cpu" {
+			cpuCompleted += backend.completed
+		}
+		perMinute += workerRate
+		seen[id] = struct{}{}
+	}
+	for _, backend := range a.backends {
+		displayName := backend.displayName
+		if displayName == "" {
+			displayName = backend.name
+		}
+		appendWorker(backend.name, displayName, backend.kind, backend.maxTextRunes)
+	}
+	for _, backend := range progress.backends {
+		if _, ok := seen[backend.backend]; !ok {
+			appendWorker(backend.backend, backend.backend, "unknown", 0)
+		}
 	}
 	state := "idle"
 	if progress.running > 0 {
@@ -86,19 +139,36 @@ func (a *apiServer) handleDictionaryAudioStatus(response http.ResponseWriter, re
 	} else if expected > 0 && progress.ready >= expected {
 		state = "complete"
 	}
+	remaining := expected - progress.ready
+	if remaining < 0 {
+		remaining = 0
+	}
+	progressPercent := 0.0
+	if expected > 0 {
+		progressPercent = math.Min(100, float64(progress.ready)/float64(expected)*100)
+	}
+	var etaSeconds any
+	if perMinute > 0 && remaining > 0 {
+		etaSeconds = int64(float64(remaining) / perMinute * 60)
+	}
 	writeJSON(response, http.StatusOK, map[string]any{
-		"schema_version": 1,
-		"state":          state,
-		"profile_id":     a.service.profileID(),
-		"format":         a.defaultFormat,
-		"expected_count": expected,
-		"ready_count":    progress.ready,
-		"total_bytes":    progress.totalBytes,
-		"queued_count":   progress.queued,
-		"running_count":  progress.running,
-		"failed_count":   progress.failed,
-		"gpu_completed":  completed["gpu"],
-		"cpu_completed":  completed["cpu"],
+		"schema_version":        1,
+		"state":                 state,
+		"profile_id":            a.service.profileID(),
+		"format":                a.defaultFormat,
+		"expected_count":        expected,
+		"ready_count":           progress.ready,
+		"total_bytes":           progress.totalBytes,
+		"queued_count":          progress.queued,
+		"running_count":         progress.running,
+		"failed_count":          progress.failed,
+		"remaining_count":       remaining,
+		"progress_percent":      progressPercent,
+		"throughput_per_minute": perMinute,
+		"eta_seconds":           etaSeconds,
+		"gpu_completed":         gpuCompleted,
+		"cpu_completed":         cpuCompleted,
+		"workers":               workers,
 	})
 }
 

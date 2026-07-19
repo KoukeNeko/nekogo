@@ -12,6 +12,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -87,7 +88,12 @@ type enqueueResult struct {
 type backendProgress struct {
 	backend       string
 	completed     int64
+	failed        int64
 	totalDuration time.Duration
+	running       int64
+	activeEntryID string
+	terminalJobs  int64
+	lastError     string
 }
 
 type synthesisProgress struct {
@@ -620,7 +626,12 @@ func (s *assetStore) cancelSynthesis(ctx context.Context, identity audioIdentity
 
 func (s *assetStore) synthesisProgress(ctx context.Context, profile audioIdentity) (synthesisProgress, error) {
 	var progress synthesisProgress
-	if err := s.db.QueryRowContext(ctx, `
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return synthesisProgress{}, fmt.Errorf("begin synthesis progress snapshot: %w", err)
+	}
+	defer tx.Rollback()
+	if err := tx.QueryRowContext(ctx, `
 		SELECT COUNT(*), COALESCE(SUM(size_bytes), 0)
 		FROM audio_assets
 		WHERE voice_id = ? AND format = ? AND speed_milli = ?
@@ -629,7 +640,7 @@ func (s *assetStore) synthesisProgress(ctx context.Context, profile audioIdentit
 	).Scan(&progress.ready, &progress.totalBytes); err != nil {
 		return synthesisProgress{}, fmt.Errorf("count ready synthesis assets: %w", err)
 	}
-	rows, err := s.db.QueryContext(ctx, `
+	rows, err := tx.QueryContext(ctx, `
 		SELECT state, COUNT(*) FROM synthesis_jobs
 		WHERE voice_id = ? AND format = ? AND speed_milli = ?
 		  AND voice_version = ? AND model_revision = ? AND profile_version = ?
@@ -657,21 +668,107 @@ func (s *assetStore) synthesisProgress(ctx context.Context, profile audioIdentit
 	if err := rows.Close(); err != nil {
 		return synthesisProgress{}, fmt.Errorf("close synthesis counts: %w", err)
 	}
-	statRows, err := s.db.QueryContext(ctx, `SELECT backend, completed, total_duration_ms FROM synthesis_backend_stats ORDER BY backend`)
+	byBackend := make(map[string]*backendProgress)
+	backendFor := func(name string) *backendProgress {
+		backend := byBackend[name]
+		if backend == nil {
+			backend = &backendProgress{backend: name}
+			byBackend[name] = backend
+		}
+		return backend
+	}
+	statRows, err := tx.QueryContext(ctx, `SELECT backend, completed, failed, total_duration_ms FROM synthesis_backend_stats ORDER BY backend`)
 	if err != nil {
 		return synthesisProgress{}, fmt.Errorf("query synthesis backend stats: %w", err)
 	}
 	for statRows.Next() {
-		var backend backendProgress
+		var name string
+		var completed, failed int64
 		var durationMS int64
-		if err := statRows.Scan(&backend.backend, &backend.completed, &durationMS); err != nil {
+		if err := statRows.Scan(&name, &completed, &failed, &durationMS); err != nil {
 			statRows.Close()
 			return synthesisProgress{}, fmt.Errorf("scan synthesis backend stats: %w", err)
 		}
+		backend := backendFor(name)
+		backend.completed = completed
+		backend.failed = failed
 		backend.totalDuration = time.Duration(durationMS) * time.Millisecond
-		progress.backends = append(progress.backends, backend)
 	}
-	_ = statRows.Close()
+	if err := statRows.Close(); err != nil {
+		return synthesisProgress{}, fmt.Errorf("close synthesis backend stats: %w", err)
+	}
+
+	activeRows, err := tx.QueryContext(ctx, `
+		SELECT COALESCE(last_backend, ''), entry_id
+		FROM synthesis_jobs
+		WHERE voice_id = ? AND format = ? AND speed_milli = ?
+		  AND voice_version = ? AND model_revision = ? AND profile_version = ?
+		  AND state = 'leased'
+		ORDER BY last_backend, entry_id`, profile.voice, profile.format, profile.speedMilli,
+		profile.voiceVersion, profile.modelRevision, profile.profileVersion)
+	if err != nil {
+		return synthesisProgress{}, fmt.Errorf("query active synthesis backends: %w", err)
+	}
+	for activeRows.Next() {
+		var name, entryID string
+		if err := activeRows.Scan(&name, &entryID); err != nil {
+			activeRows.Close()
+			return synthesisProgress{}, fmt.Errorf("scan active synthesis backend: %w", err)
+		}
+		if name == "" {
+			continue
+		}
+		backend := backendFor(name)
+		backend.running++
+		if backend.activeEntryID == "" {
+			backend.activeEntryID = entryID
+		}
+	}
+	if err := activeRows.Close(); err != nil {
+		return synthesisProgress{}, fmt.Errorf("close active synthesis backends: %w", err)
+	}
+
+	failedRows, err := tx.QueryContext(ctx, `
+		SELECT COALESCE(last_backend, ''), COALESCE(last_error, '')
+		FROM synthesis_jobs
+		WHERE voice_id = ? AND format = ? AND speed_milli = ?
+		  AND voice_version = ? AND model_revision = ? AND profile_version = ?
+		  AND state = 'failed'
+		ORDER BY last_backend, updated_at DESC`, profile.voice, profile.format, profile.speedMilli,
+		profile.voiceVersion, profile.modelRevision, profile.profileVersion)
+	if err != nil {
+		return synthesisProgress{}, fmt.Errorf("query failed synthesis backends: %w", err)
+	}
+	for failedRows.Next() {
+		var name, lastError string
+		if err := failedRows.Scan(&name, &lastError); err != nil {
+			failedRows.Close()
+			return synthesisProgress{}, fmt.Errorf("scan failed synthesis backend: %w", err)
+		}
+		if name == "" {
+			continue
+		}
+		backend := backendFor(name)
+		backend.terminalJobs++
+		if backend.lastError == "" {
+			backend.lastError = lastError
+		}
+	}
+	if err := failedRows.Close(); err != nil {
+		return synthesisProgress{}, fmt.Errorf("close failed synthesis backends: %w", err)
+	}
+
+	names := make([]string, 0, len(byBackend))
+	for name := range byBackend {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		progress.backends = append(progress.backends, *byBackend[name])
+	}
+	if err := tx.Commit(); err != nil {
+		return synthesisProgress{}, fmt.Errorf("commit synthesis progress snapshot: %w", err)
+	}
 	return progress, nil
 }
 

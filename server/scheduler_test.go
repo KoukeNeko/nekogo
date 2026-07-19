@@ -362,17 +362,26 @@ func TestDictionaryAudioStatusReportsQueueProgress(t *testing.T) {
 		t.Fatalf("status code = %d; body=%s", response.Code, response.Body.String())
 	}
 	var status struct {
-		SchemaVersion int    `json:"schema_version"`
-		ProfileID     string `json:"profile_id"`
-		Format        string `json:"format"`
-		Expected      int64  `json:"expected_count"`
-		Ready         int64  `json:"ready_count"`
-		TotalBytes    int64  `json:"total_bytes"`
-		Queued        int64  `json:"queued_count"`
-		Running       int64  `json:"running_count"`
-		Failed        int64  `json:"failed_count"`
-		GPUCompleted  int64  `json:"gpu_completed"`
-		CPUCompleted  int64  `json:"cpu_completed"`
+		SchemaVersion int     `json:"schema_version"`
+		ProfileID     string  `json:"profile_id"`
+		Format        string  `json:"format"`
+		Expected      int64   `json:"expected_count"`
+		Ready         int64   `json:"ready_count"`
+		TotalBytes    int64   `json:"total_bytes"`
+		Queued        int64   `json:"queued_count"`
+		Running       int64   `json:"running_count"`
+		Failed        int64   `json:"failed_count"`
+		GPUCompleted  int64   `json:"gpu_completed"`
+		CPUCompleted  int64   `json:"cpu_completed"`
+		Progress      float64 `json:"progress_percent"`
+		Workers       []struct {
+			ID        string `json:"id"`
+			Name      string `json:"name"`
+			Kind      string `json:"kind"`
+			State     string `json:"state"`
+			Current   string `json:"current_entry_id"`
+			Completed int64  `json:"completed_count"`
+		} `json:"workers"`
 	}
 	if err := json.Unmarshal(response.Body.Bytes(), &status); err != nil {
 		t.Fatalf("decode status: %v", err)
@@ -382,5 +391,8 @@ func TestDictionaryAudioStatusReportsQueueProgress(t *testing.T) {
 	}
 	if status.Expected != 3 || status.Ready != 1 || status.TotalBytes != int64(len("ready-audio")) || status.Queued != 1 {
 		t.Fatalf("status counts = %+v", status)
+	}
+	if status.Progress <= 0 || len(status.Workers) != 1 || status.Workers[0].ID != "gpu" || status.Workers[0].Name != "RTX 4070 Ti" || status.Workers[0].Kind != "gpu" {
+		t.Fatalf("status worker details = %+v", status)
 	}
 }

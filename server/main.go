@@ -71,7 +71,7 @@ func run(args []string) int {
 		serveContext, cancelServe := context.WithCancel(shutdownContext)
 		scheduler := newAudioScheduler(service, backends, logger)
 		scheduler.start(serveContext)
-		serverErr := runHTTPServer(serveContext, cfg, service, logger)
+		serverErr := runHTTPServer(serveContext, cfg, service, backends, logger)
 		cancelServe()
 		scheduler.waitForStop()
 		if serverErr != nil {
@@ -103,44 +103,34 @@ func run(args []string) int {
 func configuredSynthesisBackends(cfg config, httpClient *http.Client) ([]synthesisBackend, error) {
 	switch cfg.irodoriAPIMode {
 	case "gradio":
-		backends := []synthesisBackend{{
-			name: "gpu",
-			client: &gradioClient{
-				baseURL:        cfg.irodoriGPUBaseURL,
-				checkpoint:     cfg.irodoriCheckpoint,
-				modelDevice:    cfg.irodoriGPUModelDevice,
-				modelPrecision: cfg.irodoriGPUModelPrecision,
-				codecDevice:    cfg.irodoriGPUCodecDevice,
-				codecPrecision: cfg.irodoriGPUCodecPrecision,
-				numSteps:       cfg.numSteps,
-				ffmpegPath:     cfg.ffmpegPath,
-				maxAudioSize:   cfg.maxAudioBytes,
-				httpClient:     httpClient,
-			},
-			maxTextRunes: 0,
-		}}
-		if cfg.irodoriCPUEnabled {
+		configs := cfg.gradioBackendConfigs()
+		backends := make([]synthesisBackend, 0, len(configs))
+		for _, backend := range configs {
 			backends = append(backends, synthesisBackend{
-				name: "cpu",
+				name:        backend.id,
+				displayName: backend.displayName,
+				kind:        backend.kind,
 				client: &gradioClient{
-					baseURL:        cfg.irodoriCPUBaseURL,
+					baseURL:        backend.baseURL,
 					checkpoint:     cfg.irodoriCheckpoint,
-					modelDevice:    cfg.irodoriCPUModelDevice,
-					modelPrecision: cfg.irodoriCPUModelPrecision,
-					codecDevice:    cfg.irodoriCPUCodecDevice,
-					codecPrecision: cfg.irodoriCPUCodecPrecision,
+					modelDevice:    backend.modelDevice,
+					modelPrecision: backend.modelPrecision,
+					codecDevice:    backend.codecDevice,
+					codecPrecision: backend.codecPrecision,
 					numSteps:       cfg.numSteps,
 					ffmpegPath:     cfg.ffmpegPath,
 					maxAudioSize:   cfg.maxAudioBytes,
 					httpClient:     httpClient,
 				},
-				maxTextRunes: cfg.cpuMaxTextRunes,
+				maxTextRunes: backend.maxTextRunes,
 			})
 		}
 		return backends, nil
 	case "openai":
 		return []synthesisBackend{{
-			name: "primary",
+			name:        "primary",
+			displayName: "Primary API",
+			kind:        "api",
 			client: &irodoriClient{
 				baseURL:      cfg.irodoriBaseURL,
 				apiKey:       cfg.irodoriAPIKey,
@@ -156,7 +146,7 @@ func configuredSynthesisBackends(cfg config, httpClient *http.Client) ([]synthes
 	}
 }
 
-func runHTTPServer(shutdownContext context.Context, cfg config, service *audioService, logger *slog.Logger) error {
+func runHTTPServer(shutdownContext context.Context, cfg config, service *audioService, backends []synthesisBackend, logger *slog.Logger) error {
 	if cfg.appAPIKey == "" {
 		logger.Warn("APP_API_KEY is empty; app-facing authentication is disabled")
 	}
@@ -166,6 +156,7 @@ func runHTTPServer(shutdownContext context.Context, cfg config, service *audioSe
 		defaultVoice:  cfg.defaultVoice,
 		defaultFormat: cfg.defaultFormat,
 		defaultSpeed:  cfg.defaultSpeed,
+		backends:      backends,
 		logger:        logger,
 		rateLimiter:   newFixedWindowLimiter(cfg.rateLimitPerMinute),
 	}

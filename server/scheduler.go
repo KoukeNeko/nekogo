@@ -17,6 +17,8 @@ import (
 // A zero maxTextRunes means the backend may claim any job.
 type synthesisBackend struct {
 	name         string
+	displayName  string
+	kind         string
 	client       synthesisClient
 	maxTextRunes int
 }

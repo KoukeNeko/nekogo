@@ -652,8 +652,11 @@ func newTestRuntime(t *testing.T, upstreamURL string) testRuntime {
 		defaultVoice:  cfg.defaultVoice,
 		defaultFormat: cfg.defaultFormat,
 		defaultSpeed:  cfg.defaultSpeed,
-		logger:        logger,
-		rateLimiter:   newFixedWindowLimiter(1000),
+		backends: []synthesisBackend{{
+			name: "gpu", displayName: "RTX 4070 Ti", kind: "gpu", client: client,
+		}},
+		logger:      logger,
+		rateLimiter: newFixedWindowLimiter(1000),
 	}
 	return testRuntime{cfg: cfg, store: store, service: service, handler: api.routes()}
 }

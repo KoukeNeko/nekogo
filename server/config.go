@@ -10,42 +10,63 @@ import (
 )
 
 type config struct {
-	addr                     string
-	irodoriAPIMode           string
-	irodoriBaseURL           string
-	irodoriGPUBaseURL        string
-	irodoriGPUModelDevice    string
-	irodoriGPUModelPrecision string
-	irodoriGPUCodecDevice    string
-	irodoriGPUCodecPrecision string
-	irodoriCPUEnabled        bool
-	irodoriCPUBaseURL        string
-	irodoriCPUModelDevice    string
-	irodoriCPUModelPrecision string
-	irodoriCPUCodecDevice    string
-	irodoriCPUCodecPrecision string
-	cpuMaxTextRunes          int
-	irodoriAPIKey            string
-	irodoriCheckpoint        string
-	ffmpegPath               string
-	appAPIKey                string
-	databasePath             string
-	contentDatabasePath      string
-	audioDir                 string
-	overridesFile            string
-	defaultVoice             string
-	defaultFormat            string
-	defaultSpeed             float64
-	approvedVoices           map[string]struct{}
-	modelName                string
-	modelRevision            string
-	voiceVersion             string
-	profileVersion           string
-	numSteps                 int
-	maxConcurrentSynthesis   int
-	rateLimitPerMinute       int
-	requestTimeout           time.Duration
-	maxAudioBytes            int64
+	addr                      string
+	irodoriAPIMode            string
+	irodoriBaseURL            string
+	irodoriGPUName            string
+	irodoriGPUBaseURL         string
+	irodoriGPUModelDevice     string
+	irodoriGPUModelPrecision  string
+	irodoriGPUCodecDevice     string
+	irodoriGPUCodecPrecision  string
+	irodoriGPU2Enabled        bool
+	irodoriGPU2Name           string
+	irodoriGPU2BaseURL        string
+	irodoriGPU2ModelDevice    string
+	irodoriGPU2ModelPrecision string
+	irodoriGPU2CodecDevice    string
+	irodoriGPU2CodecPrecision string
+	irodoriCPUEnabled         bool
+	irodoriCPUName            string
+	irodoriCPUBaseURL         string
+	irodoriCPUModelDevice     string
+	irodoriCPUModelPrecision  string
+	irodoriCPUCodecDevice     string
+	irodoriCPUCodecPrecision  string
+	cpuMaxTextRunes           int
+	irodoriAPIKey             string
+	irodoriCheckpoint         string
+	ffmpegPath                string
+	appAPIKey                 string
+	databasePath              string
+	contentDatabasePath       string
+	audioDir                  string
+	overridesFile             string
+	defaultVoice              string
+	defaultFormat             string
+	defaultSpeed              float64
+	approvedVoices            map[string]struct{}
+	modelName                 string
+	modelRevision             string
+	voiceVersion              string
+	profileVersion            string
+	numSteps                  int
+	maxConcurrentSynthesis    int
+	rateLimitPerMinute        int
+	requestTimeout            time.Duration
+	maxAudioBytes             int64
+}
+
+type gradioBackendConfig struct {
+	id             string
+	displayName    string
+	kind           string
+	baseURL        string
+	modelDevice    string
+	modelPrecision string
+	codecDevice    string
+	codecPrecision string
+	maxTextRunes   int
 }
 
 func loadConfig() (config, error) {
@@ -55,8 +76,13 @@ func loadConfig() (config, error) {
 	}
 	apiMode := strings.ToLower(envString("IRODORI_API_MODE", "gradio"))
 	cpuEnabled := false
+	gpu2Enabled := false
 	if apiMode == "gradio" {
 		cpuEnabled, err = envBool("IRODORI_CPU_ENABLED", false)
+		if err != nil {
+			return config{}, err
+		}
+		gpu2Enabled, err = envBool("IRODORI_GPU2_ENABLED", false)
 		if err != nil {
 			return config{}, err
 		}
@@ -64,42 +90,51 @@ func loadConfig() (config, error) {
 	legacyBaseURL := strings.TrimRight(envString("IRODORI_BASE_URL", "http://192.168.50.169:7860"), "/")
 
 	cfg := config{
-		addr:                     envString("SERVER_ADDR", ":8090"),
-		irodoriAPIMode:           apiMode,
-		irodoriBaseURL:           legacyBaseURL,
-		irodoriGPUBaseURL:        strings.TrimRight(envString("IRODORI_GPU_BASE_URL", legacyBaseURL), "/"),
-		irodoriGPUModelDevice:    strings.ToLower(envString("IRODORI_GPU_MODEL_DEVICE", "cuda")),
-		irodoriGPUModelPrecision: strings.ToLower(envString("IRODORI_GPU_MODEL_PRECISION", "fp32")),
-		irodoriGPUCodecDevice:    strings.ToLower(envString("IRODORI_GPU_CODEC_DEVICE", "cuda")),
-		irodoriGPUCodecPrecision: strings.ToLower(envString("IRODORI_GPU_CODEC_PRECISION", "fp32")),
-		irodoriCPUEnabled:        cpuEnabled,
-		irodoriCPUBaseURL:        strings.TrimRight(envString("IRODORI_CPU_BASE_URL", "http://192.168.50.169:7862"), "/"),
-		irodoriCPUModelDevice:    strings.ToLower(envString("IRODORI_CPU_MODEL_DEVICE", "cpu")),
-		irodoriCPUModelPrecision: strings.ToLower(envString("IRODORI_CPU_MODEL_PRECISION", "fp32")),
-		irodoriCPUCodecDevice:    strings.ToLower(envString("IRODORI_CPU_CODEC_DEVICE", "cpu")),
-		irodoriCPUCodecPrecision: strings.ToLower(envString("IRODORI_CPU_CODEC_PRECISION", "fp32")),
-		cpuMaxTextRunes:          envInt("CPU_MAX_TEXT_RUNES", 20),
-		irodoriAPIKey:            os.Getenv("IRODORI_API_KEY"),
-		irodoriCheckpoint:        envString("IRODORI_GRADIO_CHECKPOINT", "Aratako/Irodori-TTS-500M-v3"),
-		ffmpegPath:               envString("FFMPEG_PATH", "ffmpeg"),
-		appAPIKey:                os.Getenv("APP_API_KEY"),
-		databasePath:             envString("DATABASE_PATH", "./data/tts.db"),
-		contentDatabasePath:      envString("CONTENT_DATABASE_PATH", "../assets/db/kioku-content.db"),
-		audioDir:                 envString("AUDIO_DIR", "./data/audio"),
-		overridesFile:            strings.TrimSpace(os.Getenv("TTS_OVERRIDES_FILE")),
-		defaultVoice:             envString("DEFAULT_VOICE", "dictionary-ja-01"),
-		defaultFormat:            strings.ToLower(envString("DEFAULT_FORMAT", "opus")),
-		defaultSpeed:             envFloat("DEFAULT_SPEED", 1.0),
-		approvedVoices:           parseSet(envString("APPROVED_VOICES", "dictionary-ja-01,none")),
-		modelName:                envString("IRODORI_MODEL_NAME", "irodori-tts"),
-		modelRevision:            envString("MODEL_REVISION", "Irodori-TTS-500M-v3"),
-		voiceVersion:             envString("VOICE_VERSION", "v1"),
-		profileVersion:           envString("PROFILE_VERSION", "quality-v3-opus32-no-trim"),
-		numSteps:                 envInt("IRODORI_NUM_STEPS", 60),
-		maxConcurrentSynthesis:   envInt("MAX_CONCURRENT_SYNTHESIS", 1),
-		rateLimitPerMinute:       envInt("RATE_LIMIT_PER_MINUTE", 60),
-		requestTimeout:           requestTimeout,
-		maxAudioBytes:            int64(envInt("MAX_AUDIO_MIB", 16)) * 1024 * 1024,
+		addr:                      envString("SERVER_ADDR", ":8090"),
+		irodoriAPIMode:            apiMode,
+		irodoriBaseURL:            legacyBaseURL,
+		irodoriGPUName:            envString("IRODORI_GPU_NAME", "RTX 4070 Ti"),
+		irodoriGPUBaseURL:         strings.TrimRight(envString("IRODORI_GPU_BASE_URL", legacyBaseURL), "/"),
+		irodoriGPUModelDevice:     strings.ToLower(envString("IRODORI_GPU_MODEL_DEVICE", "cuda")),
+		irodoriGPUModelPrecision:  strings.ToLower(envString("IRODORI_GPU_MODEL_PRECISION", "fp32")),
+		irodoriGPUCodecDevice:     strings.ToLower(envString("IRODORI_GPU_CODEC_DEVICE", "cuda")),
+		irodoriGPUCodecPrecision:  strings.ToLower(envString("IRODORI_GPU_CODEC_PRECISION", "fp32")),
+		irodoriGPU2Enabled:        gpu2Enabled,
+		irodoriGPU2Name:           envString("IRODORI_GPU2_NAME", "RTX 2070"),
+		irodoriGPU2BaseURL:        strings.TrimRight(strings.TrimSpace(os.Getenv("IRODORI_GPU2_BASE_URL")), "/"),
+		irodoriGPU2ModelDevice:    strings.ToLower(envString("IRODORI_GPU2_MODEL_DEVICE", "cuda")),
+		irodoriGPU2ModelPrecision: strings.ToLower(envString("IRODORI_GPU2_MODEL_PRECISION", "fp32")),
+		irodoriGPU2CodecDevice:    strings.ToLower(envString("IRODORI_GPU2_CODEC_DEVICE", "cuda")),
+		irodoriGPU2CodecPrecision: strings.ToLower(envString("IRODORI_GPU2_CODEC_PRECISION", "fp32")),
+		irodoriCPUEnabled:         cpuEnabled,
+		irodoriCPUName:            envString("IRODORI_CPU_NAME", "i7-12700K"),
+		irodoriCPUBaseURL:         strings.TrimRight(envString("IRODORI_CPU_BASE_URL", "http://192.168.50.169:7862"), "/"),
+		irodoriCPUModelDevice:     strings.ToLower(envString("IRODORI_CPU_MODEL_DEVICE", "cpu")),
+		irodoriCPUModelPrecision:  strings.ToLower(envString("IRODORI_CPU_MODEL_PRECISION", "fp32")),
+		irodoriCPUCodecDevice:     strings.ToLower(envString("IRODORI_CPU_CODEC_DEVICE", "cpu")),
+		irodoriCPUCodecPrecision:  strings.ToLower(envString("IRODORI_CPU_CODEC_PRECISION", "fp32")),
+		cpuMaxTextRunes:           envInt("CPU_MAX_TEXT_RUNES", 20),
+		irodoriAPIKey:             os.Getenv("IRODORI_API_KEY"),
+		irodoriCheckpoint:         envString("IRODORI_GRADIO_CHECKPOINT", "Aratako/Irodori-TTS-500M-v3"),
+		ffmpegPath:                envString("FFMPEG_PATH", "ffmpeg"),
+		appAPIKey:                 os.Getenv("APP_API_KEY"),
+		databasePath:              envString("DATABASE_PATH", "./data/tts.db"),
+		contentDatabasePath:       envString("CONTENT_DATABASE_PATH", "../assets/db/kioku-content.db"),
+		audioDir:                  envString("AUDIO_DIR", "./data/audio"),
+		overridesFile:             strings.TrimSpace(os.Getenv("TTS_OVERRIDES_FILE")),
+		defaultVoice:              envString("DEFAULT_VOICE", "dictionary-ja-01"),
+		defaultFormat:             strings.ToLower(envString("DEFAULT_FORMAT", "opus")),
+		defaultSpeed:              envFloat("DEFAULT_SPEED", 1.0),
+		approvedVoices:            parseSet(envString("APPROVED_VOICES", "dictionary-ja-01,none")),
+		modelName:                 envString("IRODORI_MODEL_NAME", "irodori-tts"),
+		modelRevision:             envString("MODEL_REVISION", "Irodori-TTS-500M-v3"),
+		voiceVersion:              envString("VOICE_VERSION", "v1"),
+		profileVersion:            envString("PROFILE_VERSION", "quality-v3-opus32-no-trim"),
+		numSteps:                  envInt("IRODORI_NUM_STEPS", 60),
+		maxConcurrentSynthesis:    envInt("MAX_CONCURRENT_SYNTHESIS", 1),
+		rateLimitPerMinute:        envInt("RATE_LIMIT_PER_MINUTE", 60),
+		requestTimeout:            requestTimeout,
+		maxAudioBytes:             int64(envInt("MAX_AUDIO_MIB", 16)) * 1024 * 1024,
 	}
 
 	if cfg.irodoriAPIMode != "gradio" && cfg.irodoriAPIMode != "openai" {
@@ -115,6 +150,14 @@ func loadConfig() (config, error) {
 		}
 		if err := validateRuntime("IRODORI_GPU", cfg.irodoriGPUModelDevice, cfg.irodoriGPUModelPrecision, cfg.irodoriGPUCodecDevice, cfg.irodoriGPUCodecPrecision); err != nil {
 			return config{}, err
+		}
+		if cfg.irodoriGPU2Enabled {
+			if err := validateBaseURL("IRODORI_GPU2_BASE_URL", cfg.irodoriGPU2BaseURL); err != nil {
+				return config{}, err
+			}
+			if err := validateRuntime("IRODORI_GPU2", cfg.irodoriGPU2ModelDevice, cfg.irodoriGPU2ModelPrecision, cfg.irodoriGPU2CodecDevice, cfg.irodoriGPU2CodecPrecision); err != nil {
+				return config{}, err
+			}
 		}
 		if cfg.irodoriCPUEnabled {
 			if err := validateBaseURL("IRODORI_CPU_BASE_URL", cfg.irodoriCPUBaseURL); err != nil {
@@ -150,6 +193,45 @@ func loadConfig() (config, error) {
 		return config{}, fmt.Errorf("DEFAULT_SPEED must be between 0.8 and 1.2")
 	}
 	return cfg, nil
+}
+
+func (cfg config) gradioBackendConfigs() []gradioBackendConfig {
+	backends := []gradioBackendConfig{{
+		id:             "gpu",
+		displayName:    cfg.irodoriGPUName,
+		kind:           "gpu",
+		baseURL:        cfg.irodoriGPUBaseURL,
+		modelDevice:    cfg.irodoriGPUModelDevice,
+		modelPrecision: cfg.irodoriGPUModelPrecision,
+		codecDevice:    cfg.irodoriGPUCodecDevice,
+		codecPrecision: cfg.irodoriGPUCodecPrecision,
+	}}
+	if cfg.irodoriCPUEnabled {
+		backends = append(backends, gradioBackendConfig{
+			id:             "cpu",
+			displayName:    cfg.irodoriCPUName,
+			kind:           "cpu",
+			baseURL:        cfg.irodoriCPUBaseURL,
+			modelDevice:    cfg.irodoriCPUModelDevice,
+			modelPrecision: cfg.irodoriCPUModelPrecision,
+			codecDevice:    cfg.irodoriCPUCodecDevice,
+			codecPrecision: cfg.irodoriCPUCodecPrecision,
+			maxTextRunes:   cfg.cpuMaxTextRunes,
+		})
+	}
+	if cfg.irodoriGPU2Enabled {
+		backends = append(backends, gradioBackendConfig{
+			id:             "gpu2",
+			displayName:    cfg.irodoriGPU2Name,
+			kind:           "gpu",
+			baseURL:        cfg.irodoriGPU2BaseURL,
+			modelDevice:    cfg.irodoriGPU2ModelDevice,
+			modelPrecision: cfg.irodoriGPU2ModelPrecision,
+			codecDevice:    cfg.irodoriGPU2CodecDevice,
+			codecPrecision: cfg.irodoriGPU2CodecPrecision,
+		})
+	}
+	return backends
 }
 
 func validateBaseURL(name, rawURL string) error {

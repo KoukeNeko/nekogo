@@ -5,9 +5,9 @@ SQLite queue:
 
 ```text
 App ID / prewarm manifest -> synthesis_jobs
-                              |         |
-                         GPU worker  CPU worker
-                              \         /
+                          /       |        \
+                  RTX 4070 Ti  i7-12700K  RTX 2070
+                          \       |        /
                          WAV -> Opus -> ready asset
 ```
 
@@ -40,12 +40,13 @@ set -a
 set +a
 ```
 
-The default `IRODORI_API_MODE=gradio` uses two instances of the Irodori Gradio
-API. GPU defaults to `http://192.168.50.169:7860` with `cuda/fp32`; optional CPU
-defaults to `http://192.168.50.169:7862` with `cpu/fp32`. Each backend has one
-worker. CPU claims only text at or below `CPU_MAX_TEXT_RUNES` and prefers short
-vocabulary after honoring interactive priority. Disable CPU with
-`IRODORI_CPU_ENABLED=false`; queued work remains available to GPU.
+The default `IRODORI_API_MODE=gradio` uses named Irodori Gradio workers. The
+primary RTX 4070 Ti defaults to `http://192.168.50.169:7860` with `cuda/fp32`;
+the optional i7-12700K defaults to `http://192.168.50.169:7862` with `cpu/fp32`.
+A second GPU such as the RTX 2070 is enabled with `IRODORI_GPU2_ENABLED=true`
+and `IRODORI_GPU2_BASE_URL`. Each backend has one worker. CPU claims only text
+at or below `CPU_MAX_TEXT_RUNES` and prefers short vocabulary after honoring
+interactive priority. Disable CPU or the second GPU without losing queued work.
 
 Both workers invoke `ffmpeg` to convert the complete WAV output without removing
 speech segments. The output is mono Opus at 32 kbps VBR, `application=voip`, 60
@@ -110,11 +111,13 @@ Run a read-only terminal progress view in another shell:
 go run . status
 ```
 
-On a terminal, the command updates one progress-bar line with ready/expected,
-queued/running/failed counts, GPU/CPU completions, aggregate throughput, and
-ETA. It exits automatically at 100%; press Ctrl-C to stop monitoring without
-affecting generation. For scripts, `go run . status -once` emits one stable
-timestamped line. `-interval 5s` changes the refresh interval.
+On a terminal, the command updates a multi-line progress UI with ready/expected,
+queued/running/failed counts, bytes, aggregate throughput, ETA, and one detailed
+row per named worker. Each worker row includes its current entry ID, cumulative
+completions and failures, average generation time, and throughput. It exits
+automatically at 100%; press Ctrl-C to stop monitoring without affecting
+generation. For scripts, `go run . status -once` emits one stable timestamped
+line. `-interval 5s` changes the refresh interval.
 
 Health check:
 
@@ -128,8 +131,9 @@ Lightweight queue status (unlike the manifest, this does not scan audio files):
 curl http://localhost:8090/api/v1/dictionary-audio/status
 ```
 
-It reports profile, ready/expected, queue states, total bytes, and cumulative
-GPU/CPU scheduler completions.
+It reports profile, ready/expected, queue states, total bytes, aggregate
+throughput/ETA, compatibility GPU/CPU totals, and a dynamic `workers` array with
+the same per-worker details as the terminal UI.
 
 Retrieve a ready word or example:
 
