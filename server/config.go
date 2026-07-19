@@ -27,6 +27,13 @@ type config struct {
 	irodoriGPU2ModelPrecision string
 	irodoriGPU2CodecDevice    string
 	irodoriGPU2CodecPrecision string
+	irodoriGPU3Enabled        bool
+	irodoriGPU3Name           string
+	irodoriGPU3BaseURL        string
+	irodoriGPU3ModelDevice    string
+	irodoriGPU3ModelPrecision string
+	irodoriGPU3CodecDevice    string
+	irodoriGPU3CodecPrecision string
 	irodoriCPUEnabled         bool
 	irodoriCPUName            string
 	irodoriCPUBaseURL         string
@@ -86,6 +93,7 @@ func loadConfig() (config, error) {
 	apiMode := strings.ToLower(envString("IRODORI_API_MODE", "gradio"))
 	cpuEnabled := false
 	gpu2Enabled := false
+	gpu3Enabled := false
 	androidEnabled := false
 	if apiMode == "gradio" {
 		cpuEnabled, err = envBool("IRODORI_CPU_ENABLED", false)
@@ -97,6 +105,10 @@ func loadConfig() (config, error) {
 			return config{}, err
 		}
 		gpu2Enabled, err = envBool("IRODORI_GPU2_ENABLED", false)
+		if err != nil {
+			return config{}, err
+		}
+		gpu3Enabled, err = envBool("IRODORI_GPU3_ENABLED", false)
 		if err != nil {
 			return config{}, err
 		}
@@ -120,6 +132,13 @@ func loadConfig() (config, error) {
 		irodoriGPU2ModelPrecision: strings.ToLower(envString("IRODORI_GPU2_MODEL_PRECISION", "fp32")),
 		irodoriGPU2CodecDevice:    strings.ToLower(envString("IRODORI_GPU2_CODEC_DEVICE", "cuda")),
 		irodoriGPU2CodecPrecision: strings.ToLower(envString("IRODORI_GPU2_CODEC_PRECISION", "fp32")),
+		irodoriGPU3Enabled:        gpu3Enabled,
+		irodoriGPU3Name:           envString("IRODORI_GPU3_NAME", "RTX 4070"),
+		irodoriGPU3BaseURL:        strings.TrimRight(strings.TrimSpace(os.Getenv("IRODORI_GPU3_BASE_URL")), "/"),
+		irodoriGPU3ModelDevice:    strings.ToLower(envString("IRODORI_GPU3_MODEL_DEVICE", "cuda")),
+		irodoriGPU3ModelPrecision: strings.ToLower(envString("IRODORI_GPU3_MODEL_PRECISION", "fp32")),
+		irodoriGPU3CodecDevice:    strings.ToLower(envString("IRODORI_GPU3_CODEC_DEVICE", "cuda")),
+		irodoriGPU3CodecPrecision: strings.ToLower(envString("IRODORI_GPU3_CODEC_PRECISION", "fp32")),
 		irodoriCPUEnabled:         cpuEnabled,
 		irodoriCPUName:            envString("IRODORI_CPU_NAME", "i7-12700K"),
 		irodoriCPUBaseURL:         strings.TrimRight(envString("IRODORI_CPU_BASE_URL", "http://192.168.50.169:7862"), "/"),
@@ -178,6 +197,14 @@ func loadConfig() (config, error) {
 				return config{}, err
 			}
 			if err := validateRuntime("IRODORI_GPU2", cfg.irodoriGPU2ModelDevice, cfg.irodoriGPU2ModelPrecision, cfg.irodoriGPU2CodecDevice, cfg.irodoriGPU2CodecPrecision); err != nil {
+				return config{}, err
+			}
+		}
+		if cfg.irodoriGPU3Enabled {
+			if err := validateBaseURL("IRODORI_GPU3_BASE_URL", cfg.irodoriGPU3BaseURL); err != nil {
+				return config{}, err
+			}
+			if err := validateRuntime("IRODORI_GPU3", cfg.irodoriGPU3ModelDevice, cfg.irodoriGPU3ModelPrecision, cfg.irodoriGPU3CodecDevice, cfg.irodoriGPU3CodecPrecision); err != nil {
 				return config{}, err
 			}
 		}
@@ -264,6 +291,18 @@ func (cfg config) gradioBackendConfigs() []gradioBackendConfig {
 			codecPrecision: cfg.irodoriGPU2CodecPrecision,
 		})
 	}
+	if cfg.irodoriGPU3Enabled {
+		backends = append(backends, gradioBackendConfig{
+			id:             "gpu3",
+			displayName:    cfg.irodoriGPU3Name,
+			kind:           "gpu",
+			baseURL:        cfg.irodoriGPU3BaseURL,
+			modelDevice:    cfg.irodoriGPU3ModelDevice,
+			modelPrecision: cfg.irodoriGPU3ModelPrecision,
+			codecDevice:    cfg.irodoriGPU3CodecDevice,
+			codecPrecision: cfg.irodoriGPU3CodecPrecision,
+		})
+	}
 	if cfg.androidEnabled {
 		backends = append(backends, gradioBackendConfig{
 			id:             "android",
@@ -288,6 +327,8 @@ func backendPresentation(id string) (string, string) {
 		return "i7-12700K", "cpu"
 	case "gpu2":
 		return "RTX 2070", "gpu"
+	case "gpu3":
+		return "RTX 4070", "gpu"
 	case "android":
 		return "Nothing Phone (3)", "android"
 	case "primary":

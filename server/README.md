@@ -44,12 +44,13 @@ this directory therefore uses the same worker names and endpoints as `serve`.
 The default `IRODORI_API_MODE=gradio` uses named Irodori Gradio workers. The
 primary RTX 4070 Ti defaults to `http://192.168.50.169:7860` with `cuda/fp32`;
 the optional i7-12700K defaults to `http://192.168.50.169:7862` with `cpu/fp32`.
-A second GPU such as the RTX 2070 is enabled with `IRODORI_GPU2_ENABLED=true`
-and `IRODORI_GPU2_BASE_URL`. Each backend has one worker. CPU claims only text
+A second and third GPU are enabled independently with `IRODORI_GPU2_ENABLED`,
+`IRODORI_GPU3_ENABLED`, and their matching base URLs. Each backend has one worker.
+CPU claims only text
 at or below `CPU_MAX_TEXT_RUNES` and prefers short vocabulary after honoring
-interactive priority. Disable CPU or the second GPU without losing queued work.
+interactive priority. Disable any optional worker without losing queued work.
 
-Both workers invoke `ffmpeg` to convert the complete WAV output without removing
+All workers invoke `ffmpeg` to convert the complete WAV output without removing
 speech segments. The output is mono Opus at 32 kbps VBR, `application=voip`, 60
 ms frames, and compression level 10. Set the mode to `openai` only when the
 separate OpenAI-compatible Irodori-TTS-Server is running. The synthesis profile

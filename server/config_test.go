@@ -48,6 +48,7 @@ func TestBackendPresentationRecognizesPersistedWorkerIDs(t *testing.T) {
 		{"gpu", "RTX 4070 Ti", "gpu"},
 		{"cpu", "i7-12700K", "cpu"},
 		{"gpu2", "RTX 2070", "gpu"},
+		{"gpu3", "RTX 4070", "gpu"},
 		{"android", "Nothing Phone (3)", "android"},
 	} {
 		name, kind := backendPresentation(test.id)
@@ -65,6 +66,8 @@ func TestLoadConfigUsesLegacyGPUURLFallbackAndCPUSettings(t *testing.T) {
 	t.Setenv("IRODORI_CPU_BASE_URL", "http://cpu.example:7862/")
 	t.Setenv("IRODORI_GPU2_ENABLED", "true")
 	t.Setenv("IRODORI_GPU2_BASE_URL", "https://gpu2.example/")
+	t.Setenv("IRODORI_GPU3_ENABLED", "true")
+	t.Setenv("IRODORI_GPU3_BASE_URL", "https://gpu3.example/")
 	t.Setenv("IRODORI_ANDROID_ENABLED", "true")
 	t.Setenv("IRODORI_ANDROID_NAME", "Nothing Phone (3)")
 	t.Setenv("IRODORI_ANDROID_BASE_URL", "http://android.example:7864/")
@@ -83,6 +86,9 @@ func TestLoadConfigUsesLegacyGPUURLFallbackAndCPUSettings(t *testing.T) {
 	}
 	if !cfg.irodoriGPU2Enabled || cfg.irodoriGPU2BaseURL != "https://gpu2.example" || cfg.irodoriGPU2Name != "RTX 2070" {
 		t.Fatalf("unexpected second GPU config: enabled=%t name=%q url=%q", cfg.irodoriGPU2Enabled, cfg.irodoriGPU2Name, cfg.irodoriGPU2BaseURL)
+	}
+	if !cfg.irodoriGPU3Enabled || cfg.irodoriGPU3BaseURL != "https://gpu3.example" || cfg.irodoriGPU3Name != "RTX 4070" {
+		t.Fatalf("unexpected third GPU config: enabled=%t name=%q url=%q", cfg.irodoriGPU3Enabled, cfg.irodoriGPU3Name, cfg.irodoriGPU3BaseURL)
 	}
 	if cfg.irodoriGPUModelDevice != "cuda" || cfg.irodoriGPUModelPrecision != "fp32" || cfg.irodoriGPUCodecDevice != "cuda" || cfg.irodoriGPUCodecPrecision != "fp32" {
 		t.Fatalf("unexpected GPU runtime config: %#v", cfg)
@@ -146,6 +152,21 @@ func TestLoadConfigRejectsInvalidBackendSettings(t *testing.T) {
 			wantError: "IRODORI_GPU2_BASE_URL",
 		},
 		{
+			name: "invalid third GPU enable flag",
+			configure: func(t *testing.T) {
+				t.Setenv("IRODORI_GPU3_ENABLED", "sometimes")
+			},
+			wantError: "IRODORI_GPU3_ENABLED is invalid",
+		},
+		{
+			name: "missing third GPU URL",
+			configure: func(t *testing.T) {
+				t.Setenv("IRODORI_GPU3_ENABLED", "true")
+				t.Setenv("IRODORI_GPU3_BASE_URL", "")
+			},
+			wantError: "IRODORI_GPU3_BASE_URL",
+		},
+		{
 			name: "invalid CPU enable flag",
 			configure: func(t *testing.T) {
 				t.Setenv("IRODORI_CPU_ENABLED", "sometimes")
@@ -199,11 +220,12 @@ func TestLoadConfigRejectsInvalidBackendSettings(t *testing.T) {
 	}
 }
 
-func TestLoadConfigOpenAIModeIgnoresDualGradioSettings(t *testing.T) {
+func TestLoadConfigOpenAIModeIgnoresGradioWorkerSettings(t *testing.T) {
 	t.Setenv("IRODORI_API_MODE", "openai")
 	t.Setenv("IRODORI_BASE_URL", "http://openai.example:8088")
 	t.Setenv("IRODORI_CPU_ENABLED", "not-a-boolean")
 	t.Setenv("IRODORI_GPU2_ENABLED", "not-a-boolean")
+	t.Setenv("IRODORI_GPU3_ENABLED", "not-a-boolean")
 	t.Setenv("IRODORI_ANDROID_ENABLED", "not-a-boolean")
 	t.Setenv("IRODORI_GPU_BASE_URL", "not-a-url")
 	t.Setenv("IRODORI_CPU_BASE_URL", "not-a-url")
@@ -237,6 +259,13 @@ func TestConfiguredSynthesisBackends(t *testing.T) {
 		irodoriGPU2ModelPrecision: "fp32",
 		irodoriGPU2CodecDevice:    "cuda",
 		irodoriGPU2CodecPrecision: "fp32",
+		irodoriGPU3Enabled:        true,
+		irodoriGPU3Name:           "RTX 4070",
+		irodoriGPU3BaseURL:        "https://gpu3.example",
+		irodoriGPU3ModelDevice:    "cuda",
+		irodoriGPU3ModelPrecision: "fp32",
+		irodoriGPU3CodecDevice:    "cuda",
+		irodoriGPU3CodecPrecision: "fp32",
 		irodoriCPUEnabled:         true,
 		irodoriCPUName:            "i7-12700K",
 		irodoriCPUBaseURL:         "http://cpu.example:7862",
@@ -263,7 +292,7 @@ func TestConfiguredSynthesisBackends(t *testing.T) {
 	if err != nil {
 		t.Fatalf("configuredSynthesisBackends: %v", err)
 	}
-	if len(backends) != 4 || backends[0].name != "gpu" || backends[0].displayName != "RTX 4070 Ti" || backends[0].maxTextRunes != 0 || backends[1].name != "cpu" || backends[1].displayName != "i7-12700K" || backends[1].maxTextRunes != 20 || backends[2].name != "gpu2" || backends[2].displayName != "RTX 2070" || backends[2].maxTextRunes != 0 || backends[3].name != "android" || backends[3].displayName != "Nothing Phone (3)" || backends[3].maxTextRunes != 4 {
+	if len(backends) != 5 || backends[0].name != "gpu" || backends[0].displayName != "RTX 4070 Ti" || backends[0].maxTextRunes != 0 || backends[1].name != "cpu" || backends[1].displayName != "i7-12700K" || backends[1].maxTextRunes != 20 || backends[2].name != "gpu2" || backends[2].displayName != "RTX 2070" || backends[2].maxTextRunes != 0 || backends[3].name != "gpu3" || backends[3].displayName != "RTX 4070" || backends[3].maxTextRunes != 0 || backends[4].name != "android" || backends[4].displayName != "Nothing Phone (3)" || backends[4].maxTextRunes != 4 {
 		t.Fatalf("unexpected backends: %#v", backends)
 	}
 	gpu, ok := backends[0].client.(*gradioClient)
@@ -278,9 +307,13 @@ func TestConfiguredSynthesisBackends(t *testing.T) {
 	if !ok || gpu2.baseURL != cfg.irodoriGPU2BaseURL || gpu2.modelDevice != "cuda" || gpu2.codecDevice != "cuda" || gpu2.httpClient != httpClient {
 		t.Fatalf("unexpected second GPU client: %#v", backends[2].client)
 	}
-	android, ok := backends[3].client.(*gradioClient)
+	gpu3, ok := backends[3].client.(*gradioClient)
+	if !ok || gpu3.baseURL != cfg.irodoriGPU3BaseURL || gpu3.modelDevice != "cuda" || gpu3.codecDevice != "cuda" || gpu3.httpClient != httpClient {
+		t.Fatalf("unexpected third GPU client: %#v", backends[3].client)
+	}
+	android, ok := backends[4].client.(*gradioClient)
 	if !ok || android.baseURL != cfg.androidBaseURL || android.modelDevice != "cpu" || android.codecDevice != "cpu" || android.httpClient != httpClient {
-		t.Fatalf("unexpected Android client: %#v", backends[3].client)
+		t.Fatalf("unexpected Android client: %#v", backends[4].client)
 	}
 }
 
@@ -319,6 +352,7 @@ func setValidGradioEnvironment(t *testing.T) {
 	t.Setenv("IRODORI_GPU_CODEC_PRECISION", "fp32")
 	t.Setenv("IRODORI_CPU_ENABLED", "false")
 	t.Setenv("IRODORI_GPU2_ENABLED", "false")
+	t.Setenv("IRODORI_GPU3_ENABLED", "false")
 	t.Setenv("IRODORI_ANDROID_ENABLED", "false")
 	t.Setenv("IRODORI_CPU_BASE_URL", "http://cpu.example:7862")
 	t.Setenv("IRODORI_CPU_MODEL_DEVICE", "cpu")
