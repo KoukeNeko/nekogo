@@ -113,6 +113,7 @@ final class DictionaryAudioSyncManager: NSObject, URLSessionDownloadDelegate, UR
   func resumeSync(allowCellular: Bool) throws -> [String: Any?] {
     pauseRequested = false
     cancelRequested = false
+    let cellularPolicyChanged = (store.metadata("allow_cellular") == "1") != allowCellular
     let needsManifest = store.metadata("resume_manifest") == "1" || store.metadata("manifest_token") == nil
     try store.setMetadata([
       "state": needsManifest ? "preparing" : "downloading",
@@ -126,7 +127,7 @@ final class DictionaryAudioSyncManager: NSObject, URLSessionDownloadDelegate, UR
       emitState()
       return status()
     }
-    try store.resumePaused()
+    try store.resumePaused(discardResumeData: cellularPolicyChanged)
     scheduleDownloads()
     emitState()
     return status()

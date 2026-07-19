@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput, PermissionsAndroid, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Colors, Spacing, Fonts } from "../constants/theme";
-import { ChevronLeft } from "lucide-react-native";
+import { ChevronLeft, Download, Pause, Play, RefreshCw, Trash2 } from "lucide-react-native";
 import { AppBar } from "../components/ui/AppBar";
 import { BackButton } from "../components/ui/BackButton";
 import { SettingsCard, SettingsRow, SettingsDivider } from "../components/ui/SettingsCard";
@@ -26,8 +26,52 @@ import { cleanupContentAssetCaches, getContentAssetCacheBytes } from "../db/cont
 import {
   checkTtsServer,
   clearDictionaryAudioCache,
+  type DictionaryAudioManifestSummary,
   getDictionaryAudioCacheBytes,
+  getDictionaryAudioManifestSummary,
 } from "../services/dictionaryAudio";
+import {
+  clearDictionaryAudioSync,
+  getDictionaryAudioSyncStatus,
+  pauseDictionaryAudioSync,
+  resumeDictionaryAudioSync,
+  startDictionaryAudioSync,
+  subscribeToDictionaryAudioSync,
+  type DictionaryAudioSyncStatus,
+} from "../services/dictionaryAudioSync";
+
+const EMPTY_AUDIO_SYNC_STATUS: DictionaryAudioSyncStatus = {
+  state: 'idle',
+  profileId: null,
+  format: null,
+  readyCount: 0,
+  expectedCount: 0,
+  downloadedCount: 0,
+  failedCount: 0,
+  totalBytes: 0,
+  downloadedBytes: 0,
+  lastError: null,
+  allowCellular: false,
+};
+
+const formatBytes = (bytes: number): string => {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 MB';
+  const gib = bytes / (1024 ** 3);
+  return gib >= 1 ? `${gib.toFixed(2)} GB` : `${(bytes / (1024 ** 2)).toFixed(1)} MB`;
+};
+
+const percentage = (value: number, total: number): string =>
+  total > 0 ? `${(value / total * 100).toFixed(value >= total ? 0 : 2)}%` : '0%';
+
+const syncStateLabel = (state: DictionaryAudioSyncStatus['state']): string => ({
+  idle: '未ダウンロード',
+  preparing: '準備中',
+  downloading: 'ダウンロード中',
+  paused: '一時停止',
+  completed: '同期済み',
+  completed_with_errors: '一部失敗',
+  failed: '失敗',
+})[state];
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -39,6 +83,9 @@ export default function SettingsScreen() {
   const [savedTtsServerUrl, setSavedTtsServerUrl] = useState(() => getTtsServerUrl());
   const [ttsServerUrlInput, setTtsServerUrlInput] = useState(savedTtsServerUrl);
   const [testingTtsServer, setTestingTtsServer] = useState(false);
+  const [audioManifest, setAudioManifest] = useState<DictionaryAudioManifestSummary | null>(null);
+  const [audioSyncStatus, setAudioSyncStatus] = useState<DictionaryAudioSyncStatus>(EMPTY_AUDIO_SYNC_STATUS);
+  const [audioSyncBusy, setAudioSyncBusy] = useState(false);
 
   const { strokeSpeed, setStrokeSpeed, translationLanguage, setTranslationLanguage } = useSettings();
 
@@ -53,7 +100,28 @@ export default function SettingsScreen() {
       console.error('讀取複習筆數失敗', error);
     }
     getContentAssetCacheBytes().then(setContentCacheBytes).catch(() => setContentCacheBytes(0));
+    void getDictionaryAudioSyncStatus().then(setAudioSyncStatus).catch((error) => {
+      console.warn('高品質音声の状態を取得できませんでした', error);
+    });
+    const subscription = subscribeToDictionaryAudioSync(setAudioSyncStatus);
+    return () => subscription.remove();
   }, []);
+
+  useEffect(() => {
+    if (!savedTtsServerUrl) {
+      setAudioManifest(null);
+      return;
+    }
+    void getDictionaryAudioManifestSummary(savedTtsServerUrl).then(setAudioManifest).catch(() => setAudioManifest(null));
+  }, [savedTtsServerUrl]);
+
+  useEffect(() => {
+    if (!['preparing', 'downloading'].includes(audioSyncStatus.state)) return;
+    const timer = setInterval(() => {
+      void getDictionaryAudioSyncStatus().then(setAudioSyncStatus).catch(() => undefined);
+    }, 2_000);
+    return () => clearInterval(timer);
+  }, [audioSyncStatus.state]);
 
   const handleClearCache = async () => {
     await cleanupContentAssetCaches();
@@ -87,12 +155,113 @@ export default function SettingsScreen() {
       }
       setTestingTtsServer(true);
       const result = await checkTtsServer(normalized);
+      const manifest = await getDictionaryAudioManifestSummary(normalized);
+      setAudioManifest(manifest);
       Alert.alert('接続確認', `接続できました\n${result.audioProfile}`);
     } catch (error) {
       Alert.alert('接続確認', `接続できませんでした\n${error instanceof Error ? error.message : '不明なエラー'}`);
     } finally {
       setTestingTtsServer(false);
     }
+  };
+
+  const runAudioSync = async (allowCellular: boolean) => {
+    if (audioSyncBusy) return;
+    setAudioSyncBusy(true);
+    try {
+      const normalizedInput = normalizeTtsServerUrl(ttsServerUrlInput);
+      if (!savedTtsServerUrl || normalizedInput !== savedTtsServerUrl) {
+        Alert.alert('高品質音声', '先に音声サーバー URL を保存してください');
+        return;
+      }
+      if (Platform.OS === 'android' && Number(Platform.Version) >= 33) {
+        await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+      }
+      const status = await startDictionaryAudioSync(savedTtsServerUrl, allowCellular);
+      setAudioSyncStatus(status);
+    } catch (error) {
+      Alert.alert('高品質音声を開始できませんでした', error instanceof Error ? error.message : '不明なエラー');
+    } finally {
+      setAudioSyncBusy(false);
+    }
+  };
+
+  const confirmMobileAudioSync = () => {
+    Alert.alert(
+      'モバイル通信を使用しますか？',
+      '音声データは大容量です。通信量が発生する可能性があります。',
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        { text: 'モバイル通信を許可', style: 'destructive', onPress: () => void runAudioSync(true) },
+      ],
+    );
+  };
+
+  const confirmInitialAudioSync = async () => {
+    if (audioSyncBusy) return;
+    setAudioSyncBusy(true);
+    let manifest = audioManifest;
+    try {
+      const normalizedInput = normalizeTtsServerUrl(ttsServerUrlInput);
+      if (!savedTtsServerUrl || normalizedInput !== savedTtsServerUrl) {
+        Alert.alert('高品質音声', '先に音声サーバー URL を保存してください');
+        return;
+      }
+      manifest = await getDictionaryAudioManifestSummary(savedTtsServerUrl);
+      setAudioManifest(manifest);
+    } catch (error) {
+      Alert.alert('高品質音声', `Server の音声一覧を取得できませんでした\n${error instanceof Error ? error.message : '不明なエラー'}`);
+      return;
+    } finally {
+      setAudioSyncBusy(false);
+    }
+    const estimatedFullBytes = manifest.readyCount > 0
+      ? manifest.totalBytes / manifest.readyCount * manifest.expectedCount
+      : 0;
+    Alert.alert(
+      '高品質音声をダウンロード',
+      `現在 ${manifest.readyCount.toLocaleString()} 件（${formatBytes(manifest.totalBytes)}）を同期します。\n全件生成後の論理容量見込み: ${formatBytes(estimatedFullBytes)}\n\n音声は App の書類領域に個別保存されます。`,
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        { text: 'Wi-Fiのみ', onPress: () => void runAudioSync(false) },
+        { text: 'モバイル通信も許可', onPress: confirmMobileAudioSync },
+      ],
+    );
+  };
+
+  const handlePauseAudioSync = async () => {
+    setAudioSyncBusy(true);
+    try { setAudioSyncStatus(await pauseDictionaryAudioSync()); }
+    catch (error) { Alert.alert('一時停止できませんでした', error instanceof Error ? error.message : '不明なエラー'); }
+    finally { setAudioSyncBusy(false); }
+  };
+
+  const handleResumeAudioSync = async () => {
+    setAudioSyncBusy(true);
+    try { setAudioSyncStatus(await resumeDictionaryAudioSync(audioSyncStatus.allowCellular)); }
+    catch (error) { Alert.alert('同期を再開できませんでした', error instanceof Error ? error.message : '不明なエラー'); }
+    finally { setAudioSyncBusy(false); }
+  };
+
+  const confirmClearAudioSync = () => {
+    Alert.alert(
+      '音声データを削除',
+      '持続保存された高品質音声をすべて削除します。通常の音声キャッシュは別に削除できます。',
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        {
+          text: 'すべて削除',
+          style: 'destructive',
+          onPress: () => {
+            setAudioSyncBusy(true);
+            void clearDictionaryAudioSync()
+              .then(setAudioSyncStatus)
+              .catch((error) => Alert.alert('削除できませんでした', error instanceof Error ? error.message : '不明なエラー'))
+              .finally(() => setAudioSyncBusy(false));
+          },
+        },
+      ],
+    );
   };
 
   const handleClearTtsCache = () => {
@@ -150,6 +319,17 @@ export default function SettingsScreen() {
       })}
     </View>
   );
+
+  const serverReadyCount = audioManifest?.readyCount ?? audioSyncStatus.readyCount;
+  const serverExpectedCount = audioManifest?.expectedCount ?? audioSyncStatus.expectedCount;
+  const serverTotalBytes = audioManifest?.totalBytes ?? audioSyncStatus.totalBytes;
+  const profileId = audioManifest?.profileId ?? audioSyncStatus.profileId;
+  const audioFormat = audioManifest?.format ?? audioSyncStatus.format;
+  const estimatedFullBytes = serverReadyCount > 0
+    ? serverTotalBytes / serverReadyCount * serverExpectedCount
+    : 0;
+  const syncIsActive = audioSyncStatus.state === 'preparing' || audioSyncStatus.state === 'downloading';
+  const hasPersistentAudio = audioSyncStatus.downloadedCount > 0;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -269,6 +449,85 @@ export default function SettingsScreen() {
             valueText={`${(ttsCacheBytes / (1024 * 1024)).toFixed(1)} MB`}
             onPress={handleClearTtsCache}
           />
+        </SettingsCard>
+
+        <Text style={styles.sectionHeaderLabel}>高品質音声</Text>
+        <SettingsCard>
+          <View style={styles.audioSyncPanel}>
+            <View style={styles.audioSyncTitleRow}>
+              <View style={styles.audioSyncTitleText}>
+                <Text style={styles.serverEditorLabel}>個別音声を同期</Text>
+                <Text style={styles.serverEditorSubLabel}>巨大な音声パックを作らず、完成済みファイルだけを背景で保存します</Text>
+              </View>
+              <Text style={[styles.audioSyncBadge, audioSyncStatus.state === 'failed' && styles.audioSyncBadgeError]}>
+                {syncStateLabel(audioSyncStatus.state)}
+              </Text>
+            </View>
+
+            <View style={styles.audioSyncMetrics}>
+              <View style={styles.audioSyncMetricRow}>
+                <Text style={styles.audioSyncMetricLabel}>Server</Text>
+                <Text style={styles.audioSyncMetricValue}>
+                  {serverReadyCount.toLocaleString()} / {serverExpectedCount.toLocaleString()}（{percentage(serverReadyCount, serverExpectedCount)}）
+                </Text>
+              </View>
+              <View style={styles.audioSyncMetricRow}>
+                <Text style={styles.audioSyncMetricLabel}>この端末</Text>
+                <Text style={styles.audioSyncMetricValue}>
+                  {audioSyncStatus.downloadedCount.toLocaleString()} / {audioSyncStatus.readyCount.toLocaleString()}（{percentage(audioSyncStatus.downloadedCount, audioSyncStatus.readyCount)}）
+                </Text>
+              </View>
+              <View style={styles.audioSyncMetricRow}>
+                <Text style={styles.audioSyncMetricLabel}>容量</Text>
+                <Text style={styles.audioSyncMetricValue}>
+                  {formatBytes(audioSyncStatus.downloadedBytes)} / {formatBytes(serverTotalBytes)}
+                </Text>
+              </View>
+              <View style={styles.audioSyncMetricRow}>
+                <Text style={styles.audioSyncMetricLabel}>全件見込み</Text>
+                <Text style={styles.audioSyncMetricValue}>{formatBytes(estimatedFullBytes)}</Text>
+              </View>
+              <View style={styles.audioSyncMetricRow}>
+                <Text style={styles.audioSyncMetricLabel}>Profile</Text>
+                <Text style={styles.audioSyncMetricValue} numberOfLines={2}>{profileId ?? '未確認'}</Text>
+              </View>
+              <View style={styles.audioSyncMetricRow}>
+                <Text style={styles.audioSyncMetricLabel}>形式</Text>
+                <Text style={styles.audioSyncMetricValue}>{audioFormat?.toUpperCase() ?? '—'}</Text>
+              </View>
+            </View>
+
+            {audioSyncStatus.lastError && (
+              <Text style={styles.audioSyncError}>{audioSyncStatus.lastError}</Text>
+            )}
+
+            <View style={styles.audioSyncActions}>
+              {syncIsActive ? (
+                <TouchableOpacity style={styles.secondaryButton} onPress={() => void handlePauseAudioSync()} disabled={audioSyncBusy}>
+                  <Pause size={15} color={Colors.dark.textSecondary} />
+                  <Text style={styles.secondaryButtonText}>一時停止</Text>
+                </TouchableOpacity>
+              ) : audioSyncStatus.state === 'paused' ? (
+                <TouchableOpacity style={styles.saveButton} onPress={() => void handleResumeAudioSync()} disabled={audioSyncBusy}>
+                  <Play size={15} color="#FFF" />
+                  <Text style={styles.saveButtonText}>続ける</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity style={styles.saveButton} onPress={() => void confirmInitialAudioSync()} disabled={audioSyncBusy}>
+                  {hasPersistentAudio ? <RefreshCw size={15} color="#FFF" /> : <Download size={15} color="#FFF" />}
+                  <Text style={styles.saveButtonText}>
+                    {hasPersistentAudio ? '更新を確認して同期' : 'ダウンロード'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              {hasPersistentAudio && !syncIsActive && (
+                <TouchableOpacity style={styles.destructiveButton} onPress={confirmClearAudioSync} disabled={audioSyncBusy}>
+                  <Trash2 size={15} color="#FF6B6B" />
+                  <Text style={styles.destructiveButtonText}>音声データを削除</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
         </SettingsCard>
 
         {/* Section 4: Data */}
@@ -424,6 +683,9 @@ const styles = StyleSheet.create({
     marginTop: Spacing.three,
   },
   secondaryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
     borderWidth: 1,
     borderColor: '#2E3135',
     borderRadius: 8,
@@ -436,6 +698,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   saveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
     backgroundColor: Colors.dark.primaryOrange,
     borderRadius: 8,
     paddingHorizontal: 18,
@@ -445,6 +710,82 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 13,
     fontWeight: 'bold',
+  },
+  audioSyncPanel: {
+    paddingVertical: 14,
+    gap: Spacing.three,
+  },
+  audioSyncTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.two,
+  },
+  audioSyncTitleText: {
+    flex: 1,
+  },
+  audioSyncBadge: {
+    color: '#7DCFFF',
+    backgroundColor: 'rgba(125, 207, 255, 0.1)',
+    borderRadius: 999,
+    overflow: 'hidden',
+    paddingHorizontal: Spacing.two,
+    paddingVertical: 4,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  audioSyncBadgeError: {
+    color: '#FF6B6B',
+    backgroundColor: 'rgba(255, 107, 107, 0.1)',
+  },
+  audioSyncMetrics: {
+    borderRadius: 8,
+    backgroundColor: '#0F1014',
+    borderWidth: 1,
+    borderColor: '#1C1D22',
+    padding: Spacing.three,
+    gap: Spacing.two,
+  },
+  audioSyncMetricRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.two,
+  },
+  audioSyncMetricLabel: {
+    width: 76,
+    color: Colors.dark.textSecondary,
+    fontSize: 12,
+  },
+  audioSyncMetricValue: {
+    flex: 1,
+    color: Colors.dark.text,
+    fontSize: 12,
+    fontFamily: Fonts?.mono,
+    textAlign: 'right',
+  },
+  audioSyncError: {
+    color: '#FF6B6B',
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  audioSyncActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+    gap: Spacing.two,
+  },
+  destructiveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 107, 107, 0.1)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  destructiveButtonText: {
+    color: '#FF6B6B',
+    fontSize: 13,
+    fontWeight: '600',
   },
   footer: {
     alignItems: 'center',

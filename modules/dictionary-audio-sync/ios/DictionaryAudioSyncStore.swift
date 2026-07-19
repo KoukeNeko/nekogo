@@ -229,8 +229,9 @@ final class DictionaryAudioSyncStore {
     try setMetadata(["last_error": error])
   }
 
-  func resumePaused() throws {
-    try updateCurrent("UPDATE assets SET state = 'queued', task_id = NULL WHERE profile_id = ? AND manifest_token = ? AND state = 'paused'")
+  func resumePaused(discardResumeData: Bool) throws {
+    let resumeDataUpdate = discardResumeData ? ", resume_data = NULL" : ""
+    try updateCurrent("UPDATE assets SET state = 'queued', task_id = NULL\(resumeDataUpdate) WHERE profile_id = ? AND manifest_token = ? AND state = 'paused'")
   }
 
   func pauseUnassigned() throws {

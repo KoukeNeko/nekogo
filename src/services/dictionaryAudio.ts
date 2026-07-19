@@ -1,6 +1,10 @@
 import { Directory, File, Paths } from 'expo-file-system';
 import { fetch as expoFetch } from 'expo/fetch';
 import { getTtsServerUrl } from '../db/repositories/uiSettingsRepository';
+import {
+  deleteDictionaryAudioSyncEntry,
+  getSyncedDictionaryAudioUri,
+} from './dictionaryAudioSync';
 
 // v5 invalidates files produced by the former silence-based segment trimmer.
 const AUDIO_CACHE_DIR = 'dictionary-audio-v5';
@@ -39,7 +43,7 @@ const parseEntryId = (entryId: string): { kind: 'vocab' | 'example'; id: string 
   return { kind: kind as 'vocab' | 'example', id: idParts.join(':') };
 };
 
-type AudioExtension = 'm4a' | 'opus';
+type AudioExtension = 'm4a' | 'opus' | 'aac';
 
 const cacheFileFor = (baseUrl: string, entryId: string, extension: AudioExtension): File => {
   const { kind, id } = parseEntryId(entryId);
@@ -47,7 +51,7 @@ const cacheFileFor = (baseUrl: string, entryId: string, extension: AudioExtensio
 };
 
 const readyCacheUri = (baseUrl: string, entryId: string): string | null => {
-  for (const extension of ['m4a', 'opus'] as const) {
+  for (const extension of ['m4a', 'opus', 'aac'] as const) {
     const file = cacheFileFor(baseUrl, entryId, extension);
     if (file.exists && (file.size ?? 0) > 0) return file.uri;
     if (file.exists) file.delete();
@@ -72,6 +76,7 @@ const downloadAudio = async (baseUrl: string, entryId: string): Promise<string |
     const contentType = response.headers.get('content-type')?.toLowerCase() ?? '';
     const extension: AudioExtension | null = contentType.startsWith('audio/ogg') || contentType.startsWith('audio/opus') ? 'opus' :
       contentType.startsWith('audio/mp4') || contentType.startsWith('audio/x-m4a') ? 'm4a' :
+      contentType.startsWith('audio/aac') ? 'aac' :
       null;
     if (!extension) return null;
     const declaredSize = Number(response.headers.get('content-length'));
@@ -110,6 +115,8 @@ const downloadAudio = async (baseUrl: string, entryId: string): Promise<string |
 /** 取得本機音檔 URI；未設定 server、缺檔或網路失敗時回傳 null。 */
 export const getDictionaryAudioUri = async (entryId: string): Promise<string | null> => {
   if (!isDictionaryAudioEntryId(entryId)) return null;
+  const synced = await getSyncedDictionaryAudioUri(entryId);
+  if (synced) return synced;
   const baseUrl = getTtsServerUrl();
   if (!baseUrl) return null;
 
@@ -129,9 +136,12 @@ export const prefetchDictionaryAudio = async (entryId: string): Promise<void> =>
 /** 播放器判定檔案無效時移除該筆，讓下次播放重新向 server 下載。 */
 export const invalidateDictionaryAudioCacheEntry = (entryId: string): void => {
   if (!isDictionaryAudioEntryId(entryId)) return;
+  void deleteDictionaryAudioSyncEntry(entryId).catch((error) => {
+    console.warn('持続音声ファイルを削除できませんでした', { entryId, error });
+  });
   const baseUrl = getTtsServerUrl();
   if (!baseUrl) return;
-  for (const extension of ['m4a', 'opus'] as const) {
+  for (const extension of ['m4a', 'opus', 'aac'] as const) {
     const file = cacheFileFor(baseUrl, entryId, extension);
     if (file.exists) file.delete();
   }
@@ -156,6 +166,7 @@ export const regenerateDictionaryAudio = async (entryId: string): Promise<void> 
     }
 
     invalidateDictionaryAudioCacheEntry(entryId);
+    await deleteDictionaryAudioSyncEntry(entryId);
     const regeneration = await expoFetch(url, { method: 'HEAD', signal: controller.signal });
     const generationState = regeneration.headers.get('x-audio-generation');
     if (regeneration.ok || (regeneration.status === 404 && (generationState === 'started' || generationState === 'in-progress'))) {
@@ -193,6 +204,59 @@ export const checkTtsServer = async (rawBaseUrl: string): Promise<{ audioProfile
     const body = await response.json() as { status?: string; audio_profile?: string };
     if (body.status !== 'ok') throw new Error('Invalid health response');
     return { audioProfile: body.audio_profile ?? 'unknown' };
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
+export interface DictionaryAudioManifestSummary {
+  schemaVersion: number;
+  profileId: string;
+  format: string;
+  expectedCount: number;
+  readyCount: number;
+  totalBytes: number;
+}
+
+/** Manifest は巨大化するため、先頭の metadata 行だけ読み取って接続を閉じる。 */
+export const getDictionaryAudioManifestSummary = async (rawBaseUrl: string): Promise<DictionaryAudioManifestSummary> => {
+  const baseUrl = rawBaseUrl.replace(/\/$/, '');
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
+  try {
+    const response = await expoFetch(`${baseUrl}/api/v1/dictionary-audio/manifest.ndjson`, { signal: controller.signal });
+    if (!response.ok || !response.body) throw new Error(`HTTP ${response.status}`);
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffered = '';
+    while (buffered.length <= 64 * 1024) {
+      const { done, value } = await reader.read();
+      if (value) buffered += decoder.decode(value, { stream: !done });
+      const newline = buffered.indexOf('\n');
+      if (newline >= 0) {
+        await reader.cancel();
+        const header = JSON.parse(buffered.slice(0, newline)) as Record<string, unknown>;
+        const summary: DictionaryAudioManifestSummary = {
+          schemaVersion: Number(header.schema_version),
+          profileId: String(header.profile_id ?? ''),
+          format: String(header.format ?? ''),
+          expectedCount: Number(header.expected_count),
+          readyCount: Number(header.ready_count),
+          totalBytes: Number(header.total_bytes),
+        };
+        if (
+          summary.schemaVersion !== 1 || !summary.profileId || !['opus', 'm4a', 'aac'].includes(summary.format) ||
+          !Number.isSafeInteger(summary.expectedCount) || !Number.isSafeInteger(summary.readyCount) ||
+          !Number.isSafeInteger(summary.totalBytes) || summary.expectedCount < 0 || summary.readyCount < 0 ||
+          summary.readyCount > summary.expectedCount || summary.totalBytes < 0
+        ) {
+          throw new Error('Invalid manifest metadata');
+        }
+        return summary;
+      }
+      if (done) break;
+    }
+    throw new Error('Manifest metadata is missing');
   } finally {
     clearTimeout(timeout);
   }
